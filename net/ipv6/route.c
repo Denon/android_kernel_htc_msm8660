@@ -233,7 +233,9 @@ static inline struct rt6_info *ip6_dst_alloc(struct dst_ops *ops,
 {
 	struct rt6_info *rt = dst_alloc(ops, dev, 0, 0, flags);
 
-	memset(&rt->rt6i_table, 0, sizeof(*rt) - sizeof(struct dst_entry));
+	if (rt != NULL)
+		memset(&rt->rt6i_table, 0,
+			sizeof(*rt) - sizeof(struct dst_entry));
 
 	return rt;
 }
@@ -2961,9 +2963,9 @@ int __init ip6_route_init(void)
 		goto fib6_rules_init;
 
 	ret = -ENOBUFS;
-	if (__rtnl_register(PF_INET6, RTM_NEWROUTE, inet6_rtm_newroute, NULL) ||
-	    __rtnl_register(PF_INET6, RTM_DELROUTE, inet6_rtm_delroute, NULL) ||
-	    __rtnl_register(PF_INET6, RTM_GETROUTE, inet6_rtm_getroute, NULL))
+	if (__rtnl_register(PF_INET6, RTM_NEWROUTE, inet6_rtm_newroute, NULL, NULL) ||
+	    __rtnl_register(PF_INET6, RTM_DELROUTE, inet6_rtm_delroute, NULL, NULL) ||
+	    __rtnl_register(PF_INET6, RTM_GETROUTE, inet6_rtm_getroute, NULL, NULL))
 		goto out_register_late_subsys;
 
 	ret = register_netdevice_notifier(&ip6_route_dev_notifier);

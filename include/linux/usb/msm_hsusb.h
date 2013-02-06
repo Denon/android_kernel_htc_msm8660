@@ -2,7 +2,7 @@
  *
  * Copyright (C) 2008 Google, Inc.
  * Author: Brian Swetland <swetland@google.com>
- * Copyright (c) 2009-2012, Code Aurora Forum. All rights reserved.
+ * Copyright (c) 2009-2011, Code Aurora Forum. All rights reserved.
  *
  * This software is licensed under the terms of the GNU General Public
  * License version 2, as published by the Free Software Foundation, and
@@ -23,7 +23,6 @@
 #include <linux/wakelock.h>
 #include <mach/board.h>
 #include <mach/msm_xo.h>
-#include <linux/pm_qos_params.h>
 
 /**
  * Supported USB modes
@@ -145,7 +144,7 @@ enum usb_chg_type {
  * @default_mode: Default operational mode. Applicable only if
  *              OTG switch is controller by user.
  * @pclk_src_name: pclk is derived from ebi1_usb_clk in case of 7x27 and 8k
- *              dfab_usb_hs_clk in case of 8660 and 8960
+ *              dfab_usb_hs_clk in case of 8660 and 8960.
  * @pmic_id_irq: IRQ number assigned for PMIC USB ID line.
  * @mhl_enable: indicates MHL connector or not.
  * @ido_3v3_name: the regulator provide 3.075(3.3)V to PHY
@@ -154,7 +153,6 @@ enum usb_chg_type {
  *		detection block in 28nm/45nm PHY
  * @phy_notify_enabled: even in OTG_PMIC_CONTROL, still force enabled phy
  *		interrupt and deliver the notification
- * @swfi_latency: miminum latency to allow swfi.
  */
 struct msm_otg_platform_data {
 	int *phy_init_seq;
@@ -171,17 +169,10 @@ struct msm_otg_platform_data {
 	char *ldo_3v3_name;
 	char *ldo_1v8_name;
 	char *vddcx_name;
-	u32 swfi_latency;
 	/* This flag is against the condition that PHY fail into lpm when DCP is attached. */
 	int reset_phy_before_lpm;
 	bool phy_notify_enabled;
-	/* 1 : uart, 0 : usb */
 	void (*usb_uart_switch)(int uart);
-	int (*rpc_connect)(int connect);
-	int (*phy_reset)(void);
-	void (*usb_hub_enable)(bool);
-	void (*serial_debug_gpios)(int);
-	int (*china_ac_detect)(void);
 };
 
 /**
@@ -212,8 +203,6 @@ struct msm_otg_platform_data {
  *             connected. Useful only when ACA_A charger is
  *             connected.
  * @mA_port: The amount of current drawn by the attached B-device.
- * @pm_qos_req_dma: miminum DMA latency to vote against idle power
-	collapse when cable is connected.
  * @id_timer: The timer used for polling ID line to detect ACA states.
  */
 struct msm_otg {
@@ -270,7 +259,6 @@ struct msm_otg {
 #define PHY_RETENTIONED			BIT(1)
 #define PHY_OTG_COMP_DISABLED		BIT(2)
 	struct work_struct notifier_work;
-	struct work_struct usb_hub_work;
 	enum usb_connect_type connect_type;
 	int connect_type_ready;
 	struct workqueue_struct *usb_wq;
@@ -278,7 +266,6 @@ struct msm_otg {
 	int ac_detect_count;
 
 	struct msm_xo_voter *xo_handle; /*handle to vote for PXO buffer*/
-	struct pm_qos_request_list pm_qos_req_dma;
 	int reset_phy_before_lpm;
 
 	void (*vbus_notification_cb)(int online);

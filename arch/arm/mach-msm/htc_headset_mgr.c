@@ -381,14 +381,11 @@ static int get_mic_status(void)
 			    adc <= hi->pdata.headset_config[i].adc_max)
 				return hi->pdata.headset_config[i].type;
 		}
-			if (hi->pdata.driver_flag & DRIVER_HS_MGR_FLOAT_DET) {
-				return HEADSET_UNPLUG;
-			}
-	} else if (hs_mgr_notifier.mic_status) {
+	} else if (hs_mgr_notifier.mic_status)
 		mic = hs_mgr_notifier.mic_status();
-	}
 	else
 		HS_LOG("Failed to get MIC status");
+
 	return mic;
 }
 
@@ -426,7 +423,7 @@ static void set_35mm_hw_state(int state)
 		if (hi->mic_bias_state != state) {
 			if (hi->pdata.headset_power)
 				hi->pdata.headset_power(state);
-			if (hs_mgr_notifier.mic_bias_enable)
+			else if (hs_mgr_notifier.mic_bias_enable)
 				hs_mgr_notifier.mic_bias_enable(state);
 
 			hi->mic_bias_state = state;
@@ -553,13 +550,13 @@ static void mic_detect_work_func(struct work_struct *work)
 	if (mic == HEADSET_METRICO && !hi->metrico_status)
 		enable_metrico_headset(1);
 
-	if (mic == HEADSET_UNKNOWN_MIC || mic == HEADSET_UNPLUG) {
+	if (mic == HEADSET_UNKNOWN_MIC) {
 		mutex_unlock(&hi->mutex_lock);
 		if (hi->mic_detect_counter--)
 			queue_delayed_work(detect_wq, &mic_detect_work,
 					   HS_JIFFIES_MIC_DETECT);
 		else
-			HS_LOG("MIC polling timeout (UNKNOWN/Floating MIC status)");
+			HS_LOG("MIC polling timeout (UNKNOWN MIC status)");
 		return;
 	}
 
@@ -571,7 +568,7 @@ static void mic_detect_work_func(struct work_struct *work)
 	}
 
 	old_state = switch_get_state(&hi->sdev_h2w);
-	if (!(old_state & MASK_35MM_HEADSET) && !(hi->is_ext_insert)) {
+	if (!(old_state & MASK_35MM_HEADSET)) {
 		HS_LOG("Headset has been removed");
 		mutex_unlock(&hi->mutex_lock);
 		return;
@@ -581,10 +578,6 @@ static void mic_detect_work_func(struct work_struct *work)
 	new_state |= BIT_35MM_HEADSET;
 
 	switch (mic) {
-	case HEADSET_UNPLUG:
-		new_state &= ~MASK_35MM_HEADSET;
-		HS_LOG("HEADSET_UNPLUG (FLOAT)");
-		break;
 	case HEADSET_NO_MIC:
 		new_state |= BIT_HEADSET_NO_MIC;
 		HS_LOG("HEADSET_NO_MIC");
@@ -617,21 +610,14 @@ static void mic_detect_work_func(struct work_struct *work)
 		break;
 	}
 
-	if (old_state != new_state) {
-		if (old_state & new_state & MASK_35MM_HEADSET) {
-			if (hi->pdata.driver_flag & DRIVER_HS_MGR_OLD_AJ) {
-				new_state |= old_state;
-				HS_LOG("Old audio jack found, use workaround");
-			} else {
-				switch_set_state(&hi->sdev_h2w, old_state & ~MASK_35MM_HEADSET);
-				HS_LOG("Report fake remove event");
-			}
-		}
+	if (new_state != old_state) {
+		HS_LOG_TIME("Unplug accessory");
+		switch_set_state(&hi->sdev_h2w, old_state & ~MASK_35MM_HEADSET);
 		hi->hs_35mm_type = mic;
-		HS_LOG_TIME("Send uevent for state change, %d => %d", old_state, new_state);
+		HS_LOG_TIME("Plug accessory and update MIC status");
 		switch_set_state(&hi->sdev_h2w, new_state);
 	} else
-		HS_LOG("No state change");
+		HS_LOG("MIC status has not changed");
 
 	mutex_unlock(&hi->mutex_lock);
 }
@@ -705,14 +691,11 @@ static void remove_detect_work_func(struct work_struct *work)
 
 	if (time_before_eq(jiffies, hi->insert_jiffies + HZ)) {
 		HS_LOG("Waiting for HPIN stable");
-		if (hi->pdata.driver_flag & DRIVER_HS_MGR_OLD_AJ)
-			msleep(HS_DELAY_SEC - HS_DELAY_REMOVE_LONG);
-		else
-			msleep(HS_DELAY_SEC - HS_DELAY_REMOVE_SHORT);
+		msleep(HS_DELAY_SEC - HS_DELAY_REMOVE);
 	}
 
 	if (hi->is_ext_insert) {
-		HS_LOG("Headset has been reinserted during debounce time");
+		HS_LOG("Headset has been inserted");
 		return;
 	}
 
@@ -771,7 +754,7 @@ static void remove_detect_work_func(struct work_struct *work)
 
 static void insert_detect_work_func(struct work_struct *work)
 {
-	int state,old_state;
+	int state;
 	int mic = HEADSET_NO_MIC;
 
 	wake_lock_timeout(&hi->hs_wake_lock, HS_WAKE_LOCK_TIMEOUT);
@@ -789,14 +772,6 @@ static void insert_detect_work_func(struct work_struct *work)
 	mutex_lock(&hi->mutex_lock);
 
 	mic = get_mic_status();
-	if (hi->pdata.driver_flag & DRIVER_HS_MGR_FLOAT_DET) {
-		HS_LOG("Headset float detect enable");
-		if (mic == HEADSET_UNPLUG) {
-			mutex_unlock(&hi->mutex_lock);
-			update_mic_status(HS_DEF_MIC_DETECT_COUNT);
-			return;
-		}
-	}
 
 	if (mic == HEADSET_NO_MIC)
 		mic = tv_out_detect();
@@ -808,12 +783,10 @@ static void insert_detect_work_func(struct work_struct *work)
 		enable_metrico_headset(1);
 
 	state = switch_get_state(&hi->sdev_h2w);
-	old_state = state;
 	state &= ~MASK_35MM_HEADSET;
 	state |= BIT_35MM_HEADSET;
 
 	switch (mic) {
-
 	case HEADSET_NO_MIC:
 		state |= BIT_HEADSET_NO_MIC;
 		HS_LOG_TIME("HEADSET_NO_MIC");
@@ -850,21 +823,8 @@ static void insert_detect_work_func(struct work_struct *work)
 		break;
 	}
 
-	if (old_state != state) {
-		if (old_state & state & MASK_35MM_HEADSET) {
-			if (hi->pdata.driver_flag & DRIVER_HS_MGR_OLD_AJ) {
-				state |= old_state;
-				HS_LOG("Old audio jack found, use workaround");
-			} else {
-				switch_set_state(&hi->sdev_h2w, old_state & ~MASK_35MM_HEADSET);
-				HS_LOG("Report fake remove event");
-			}
-		}
-		hi->hs_35mm_type = mic;
-		HS_LOG_TIME("Send uevent for state change, %d => %d", old_state, state);
-		switch_set_state(&hi->sdev_h2w, state);
-	} else
-		HS_LOG("No state change");
+	hi->hs_35mm_type = mic;
+	switch_set_state(&hi->sdev_h2w, state);
 
 	mutex_unlock(&hi->mutex_lock);
 
@@ -900,15 +860,10 @@ int hs_notify_plug_event(int insert)
 	if (hi->is_ext_insert)
 		queue_delayed_work(detect_wq, &insert_detect_work,
 				   HS_JIFFIES_INSERT);
-	else {
-		if (hi->pdata.driver_flag & DRIVER_HS_MGR_OLD_AJ) {
-			queue_delayed_work(detect_wq, &remove_detect_work,
-					HS_JIFFIES_REMOVE_LONG);
-		} else {
-			queue_delayed_work(detect_wq, &remove_detect_work,
-					HS_JIFFIES_REMOVE_SHORT);
-		}
-	}
+	else
+		queue_delayed_work(detect_wq, &remove_detect_work,
+				   HS_JIFFIES_REMOVE);
+
 	return 1;
 }
 
@@ -931,10 +886,6 @@ int hs_notify_key_event(int key_code)
 		update_mic_status(0);
 	else if (!hs_hpin_stable()) {
 		HS_LOG("IGNORE key %d (Unstable HPIN)", key_code);
-		return 1;
-	} else if (hi->hs_35mm_type == HEADSET_UNPLUG && hi->is_ext_insert == 1) {
-		HS_LOG("MIC status is changed from float, re-polling to decide accessory type");
-		update_mic_status(HS_DEF_MIC_DETECT_COUNT);
 		return 1;
 	} else {
 		work = kzalloc(sizeof(struct button_work), GFP_KERNEL);

@@ -82,6 +82,7 @@
 #ifdef CONFIG_BT
 #include <mach/htc_bdaddress.h>
 #endif
+//#include <mach/htc_usb.h>
 #include <mach/gpiomux.h>
 #ifdef CONFIG_MSM_DSPS
 #include <mach/msm_dsps.h>
@@ -106,6 +107,7 @@
 #include <mach/rpm-regulator.h>
 #include <mach/restart.h>
 #include <mach/cable_detect.h>
+#include <linux/msm_tsens.h>
 
 #include "board-pyramid.h"
 #include "devices.h"
@@ -134,6 +136,13 @@
 
 #ifdef CONFIG_CPU_FREQ_GOV_ONDEMAND_2_PHASE
 int set_two_phase_freq(int cpufreq);
+#endif
+
+#ifdef CONFIG_CPU_FREQ_GOV_BADASS_2_PHASE
+int set_two_phase_freq_badass(int cpufreq);
+#endif
+#ifdef CONFIG_CPU_FREQ_GOV_BADASS_3_PHASE
+int set_three_phase_freq_badass(int cpufreq);
 #endif
 
 /* Macros assume PMIC GPIOs start at 0 */
@@ -482,8 +491,8 @@ static struct regulator_init_data saw_s0_init_data = {
 		.constraints = {
 			.name = "8901_s0",
 			.valid_ops_mask = REGULATOR_CHANGE_VOLTAGE,
-			.min_uV = 840000,
-			.max_uV = 1250000,
+			.min_uV = 700000,
+			.max_uV = 1350000,
 		},
 		.consumer_supplies = vreg_consumers_8901_S0,
 		.num_consumer_supplies = ARRAY_SIZE(vreg_consumers_8901_S0),
@@ -493,8 +502,8 @@ static struct regulator_init_data saw_s1_init_data = {
 		.constraints = {
 			.name = "8901_s1",
 			.valid_ops_mask = REGULATOR_CHANGE_VOLTAGE,
-			.min_uV = 840000,
-			.max_uV = 1250000,
+			.min_uV = 700000,
+			.max_uV = 1350000,
 		},
 		.consumer_supplies = vreg_consumers_8901_S1,
 		.num_consumer_supplies = ARRAY_SIZE(vreg_consumers_8901_S1),
@@ -1569,7 +1578,7 @@ static struct msm_camera_sensor_flash_data flash_s5k3h1gx = {
 
 static struct camera_flash_cfg msm_camera_sensor_flash_cfg = {
 	.low_temp_limit		= 5,
-	.low_cap_limit		= 30,
+	.low_cap_limit		= 5,
 };
 
 static struct msm_camera_sensor_info msm_camera_sensor_s5k3h1gx_data = {
@@ -1707,19 +1716,9 @@ static uint32_t gsbi4_gpio_table[] = {
 	GPIO_CFG(PYRAMID_CAM_I2C_SCL, 1, GPIO_CFG_OUTPUT, GPIO_CFG_NO_PULL, GPIO_CFG_8MA),
 };
 
-static uint32_t gsbi4_gpio_table_gpio[] = {
-	GPIO_CFG(PYRAMID_CAM_I2C_SDA, 0, GPIO_CFG_INPUT, GPIO_CFG_NO_PULL, GPIO_CFG_8MA),
-	GPIO_CFG(PYRAMID_CAM_I2C_SCL, 0, GPIO_CFG_INPUT, GPIO_CFG_NO_PULL, GPIO_CFG_8MA),
-};
-
 static uint32_t gsbi5_gpio_table[] = {
 	GPIO_CFG(PYRAMID_TP_I2C_SDA, 1, GPIO_CFG_INPUT, GPIO_CFG_NO_PULL, GPIO_CFG_4MA),
 	GPIO_CFG(PYRAMID_TP_I2C_SCL, 1, GPIO_CFG_INPUT, GPIO_CFG_NO_PULL, GPIO_CFG_8MA),
-};
-
-static uint32_t gsbi5_gpio_table_gpio[] = {
-	GPIO_CFG(PYRAMID_TP_I2C_SDA, 0, GPIO_CFG_INPUT, GPIO_CFG_NO_PULL, GPIO_CFG_8MA),
-	GPIO_CFG(PYRAMID_TP_I2C_SCL, 0, GPIO_CFG_INPUT, GPIO_CFG_NO_PULL, GPIO_CFG_8MA),
 };
 
 static uint32_t gsbi7_gpio_table[] = {
@@ -1727,19 +1726,9 @@ static uint32_t gsbi7_gpio_table[] = {
 	GPIO_CFG(PYRAMID_GENERAL_I2C_SCL, 1, GPIO_CFG_INPUT, GPIO_CFG_NO_PULL, GPIO_CFG_8MA),
 };
 
-static uint32_t gsbi7_gpio_table_gpio[] = {
-	GPIO_CFG(PYRAMID_GENERAL_I2C_SDA, 0, GPIO_CFG_INPUT, GPIO_CFG_NO_PULL, GPIO_CFG_8MA),
-	GPIO_CFG(PYRAMID_GENERAL_I2C_SCL, 0, GPIO_CFG_INPUT, GPIO_CFG_NO_PULL, GPIO_CFG_8MA),
-};
-
 static uint32_t gsbi10_gpio_table[] = {
 	GPIO_CFG(PYRAMID_SENSOR_I2C_SDA, 1, GPIO_CFG_INPUT, GPIO_CFG_NO_PULL, GPIO_CFG_4MA),
 	GPIO_CFG(PYRAMID_SENSOR_I2C_SCL, 1, GPIO_CFG_INPUT, GPIO_CFG_NO_PULL, GPIO_CFG_8MA),
-};
-
-static uint32_t gsbi10_gpio_table_gpio[] = {
-	GPIO_CFG(PYRAMID_SENSOR_I2C_SDA, 0, GPIO_CFG_INPUT, GPIO_CFG_NO_PULL, GPIO_CFG_8MA),
-	GPIO_CFG(PYRAMID_SENSOR_I2C_SCL, 0, GPIO_CFG_INPUT, GPIO_CFG_NO_PULL, GPIO_CFG_8MA),
 };
 
 
@@ -1753,8 +1742,8 @@ static void gsbi_qup_i2c_gpio_config(int adap_id, int config_type)
 	}
 
 	if ((adap_id == MSM_GSBI4_QUP_I2C_BUS_ID) && (config_type == 0)) {
-		gpio_tlmm_config(gsbi4_gpio_table_gpio[0], GPIO_CFG_ENABLE);
-		gpio_tlmm_config(gsbi4_gpio_table_gpio[1], GPIO_CFG_ENABLE);
+		gpio_tlmm_config(gsbi4_gpio_table[0], GPIO_CFG_DISABLE);
+		gpio_tlmm_config(gsbi4_gpio_table[1], GPIO_CFG_DISABLE);
 	}
 
 	if ((adap_id == MSM_GSBI5_QUP_I2C_BUS_ID) && (config_type == 1)) {
@@ -1763,8 +1752,8 @@ static void gsbi_qup_i2c_gpio_config(int adap_id, int config_type)
 	}
 
 	if ((adap_id == MSM_GSBI5_QUP_I2C_BUS_ID) && (config_type == 0)) {
-		gpio_tlmm_config(gsbi5_gpio_table_gpio[0], GPIO_CFG_ENABLE);
-		gpio_tlmm_config(gsbi5_gpio_table_gpio[1], GPIO_CFG_ENABLE);
+		gpio_tlmm_config(gsbi5_gpio_table[0], GPIO_CFG_DISABLE);
+		gpio_tlmm_config(gsbi5_gpio_table[1], GPIO_CFG_DISABLE);
 	}
 
 	if ((adap_id == MSM_GSBI7_QUP_I2C_BUS_ID) && (config_type == 1)) {
@@ -1773,8 +1762,8 @@ static void gsbi_qup_i2c_gpio_config(int adap_id, int config_type)
 	}
 
 	if ((adap_id == MSM_GSBI7_QUP_I2C_BUS_ID) && (config_type == 0)) {
-		gpio_tlmm_config(gsbi7_gpio_table_gpio[0], GPIO_CFG_ENABLE);
-		gpio_tlmm_config(gsbi7_gpio_table_gpio[1], GPIO_CFG_ENABLE);
+		gpio_tlmm_config(gsbi7_gpio_table[0], GPIO_CFG_DISABLE);
+		gpio_tlmm_config(gsbi7_gpio_table[1], GPIO_CFG_DISABLE);
 	}
 
 	if ((adap_id == MSM_GSBI10_QUP_I2C_BUS_ID) && (config_type == 1)) {
@@ -1783,8 +1772,8 @@ static void gsbi_qup_i2c_gpio_config(int adap_id, int config_type)
 	}
 
 	if ((adap_id == MSM_GSBI10_QUP_I2C_BUS_ID) && (config_type == 0)) {
-		gpio_tlmm_config(gsbi10_gpio_table_gpio[0], GPIO_CFG_ENABLE);
-		gpio_tlmm_config(gsbi10_gpio_table_gpio[1], GPIO_CFG_ENABLE);
+		gpio_tlmm_config(gsbi10_gpio_table[0], GPIO_CFG_DISABLE);
+		gpio_tlmm_config(gsbi10_gpio_table[1], GPIO_CFG_DISABLE);
 	}
 
 }
@@ -2639,8 +2628,8 @@ static struct regulator_consumer_supply vreg_consumers_PM8901_S4_PC[] = {
 /* RPM early regulator constraints */
 static struct rpm_regulator_init_data rpm_regulator_early_init_data[] = {
 	/*	 ID       a_on pd ss min_uV   max_uV   init_ip    freq */
-	RPM_SMPS(PM8058_S0, 0, 1, 1,  500000, 1250000, SMPS_HMIN, 1p92),
-	RPM_SMPS(PM8058_S1, 0, 1, 1,  500000, 1250000, SMPS_HMIN, 1p92),
+	RPM_SMPS(PM8058_S0, 0, 1, 1,  500000, 1450000, SMPS_HMIN, 1p92),
+	RPM_SMPS(PM8058_S1, 0, 1, 1,  500000, 1450000, SMPS_HMIN, 1p92),
 };
 
 /* RPM regulator constraints */
@@ -2792,10 +2781,19 @@ static struct platform_device *early_devices[] __initdata = {
 #endif
 };
 
+static struct tsens_platform_data pyr_tsens_pdata  = {
+		.tsens_factor		= 1000,
+		.hw_type		= MSM_8660,
+		.tsens_num_sensor	= 6,
+		.slope 			= 702,
+};
+
+/*
 static struct platform_device msm_tsens_device = {
 	.name   = "tsens-tm",
 	.id = -1,
 };
+*/
 
 #ifdef CONFIG_SENSORS_MSM_ADC
 static struct adc_access_fn xoadc_fn = {
@@ -3122,7 +3120,7 @@ static struct pm8058_led_config pm_led_config[] = {
 		.name = "button-backlight",
 		.type = PM8058_LED_DRVX,
 		.bank = 6,
-		.flags = PM8058_LED_LTU_EN,
+		.flags = PM8058_LED_LTU_EN | PM8058_LED_DYNAMIC_BRIGHTNESS_EN,
 		.period_us = USEC_PER_SEC / 1000,
 		.start_index = 0,
 		.duites_size = 8,
@@ -3356,7 +3354,8 @@ static struct platform_device *pyramid_devices[] __initdata = {
 #ifdef CONFIG_BATTERY_MSM
 	&msm_batt_device,
 #endif
-#ifdef CONFIG_ANDROID_PMEM
+#ifdef CONFIG_ANDROID_PMEM	&android_pmem_adsp_device,
+	&android_pmem_audio_device,
 #ifndef CONFIG_MSM_MULTIMEDIA_USE_ION
 	&android_pmem_device,
 	&android_pmem_adsp_device,
@@ -3423,7 +3422,7 @@ static struct platform_device *pyramid_devices[] __initdata = {
 	&msm_device_rng,
 #endif
 
-	&msm_tsens_device,
+	//&msm_tsens_device,
 	&msm_rpm_device,
 	&cable_detect_device,
 #ifdef CONFIG_BT
@@ -3909,7 +3908,7 @@ static struct pm8058_pwm_pdata pm8058_pwm_data = {
 
 static struct pm8xxx_rtc_platform_data pm8058_rtc_pdata = {
 	.rtc_write_enable	= true,
-	.rtc_alarm_powerup	= true,
+	.rtc_alarm_powerup	= false,
 };
 
 static struct pm8xxx_pwrkey_platform_data pm8058_pwrkey_pdata = {
@@ -6136,6 +6135,9 @@ static void __init msm8x60_init(struct msm_board_data *board_data)
 
 	raw_speed_bin = readl(QFPROM_SPEED_BIN_ADDR);
 	speed_bin = raw_speed_bin & 0xF;
+
+	msm_tsens_early_init(&pyr_tsens_pdata);
+
 	/*
 	 * Initialize RPM first as other drivers and devices may need
 	 * it for their initialization.
@@ -6219,6 +6221,13 @@ static void __init msm8x60_init(struct msm_board_data *board_data)
 
 #ifdef CONFIG_CPU_FREQ_GOV_ONDEMAND_2_PHASE
 	set_two_phase_freq(1134000);
+#endif
+
+#ifdef CONFIG_CPU_FREQ_GOV_BADASS_2_PHASE
+	set_two_phase_freq_badass(CONFIG_CPU_FREQ_GOV_BADASS_2_PHASE_FREQ);
+#endif
+#ifdef CONFIG_CPU_FREQ_GOV_BADASS_3_PHASE
+	set_three_phase_freq_badass(CONFIG_CPU_FREQ_GOV_BADASS_3_PHASE_FREQ);
 #endif
 
 	msm8x60_init_tlmm();

@@ -1053,8 +1053,7 @@ skip_normal_probe:
 	}
 
 
-	if (data_interface->cur_altsetting->desc.bNumEndpoints < 2 ||
-	    control_interface->cur_altsetting->desc.bNumEndpoints == 0)
+	if (data_interface->cur_altsetting->desc.bNumEndpoints < 2)
 		return -EINVAL;
 
 	epctrl = &control_interface->cur_altsetting->endpoint[0].desc;
@@ -1507,6 +1506,9 @@ static const struct usb_device_id acm_ids[] = {
 					   quirk for this. */
 	},
 	{ USB_DEVICE(0x0572, 0x1340), /* Conexant CX93010-2x UCMxx */
+	.driver_info = NO_UNION_NORMAL,
+	},
+	{ USB_DEVICE(0x05f9, 0x4002), /* PSC Scanning, Magellan 800i */
 	.driver_info = NO_UNION_NORMAL,
 	},
 	{ USB_DEVICE(0x1bbb, 0x0003), /* Alcatel OT-I650 */

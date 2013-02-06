@@ -37,7 +37,7 @@
 #include <linux/android_alarm.h>
 #include <linux/suspend.h>
 #include <linux/earlysuspend.h>
-#include <mach/rpm.h>
+#include <linux/fastchg.h>
 
 #define BATT_SUSPEND_CHECK_TIME			3600
 #define BATT_TIMER_CHECK_TIME			360
@@ -314,9 +314,21 @@ static void cable_status_notifier_func(enum usb_connect_type online)
 
 	switch (online) {
 	case CONNECT_TYPE_USB:
+#ifdef CONFIG_FORCE_FAST_CHARGE
+		if (force_fast_charge == 1) {
+			BATT_LOG("cable USB forced fast charge");
+			htc_batt_info.rep.charging_source = CHARGER_AC;
+			radio_set_cable_status(CHARGER_AC);
+		} else {
+			BATT_LOG("cable USB");
+			htc_batt_info.rep.charging_source = CHARGER_USB;
+			radio_set_cable_status(CHARGER_USB);
+		}
+#else
 		BATT_LOG("cable USB");
 		htc_batt_info.rep.charging_source = CHARGER_USB;
 		radio_set_cable_status(CHARGER_USB);
+#endif
 		break;
 	case CONNECT_TYPE_AC:
 		BATT_LOG("cable AC");
@@ -364,33 +376,6 @@ static int htc_battery_set_charging(int ctl)
 		rc = tps_set_charger_ctrl(ctl);
 
 	return rc;
-}
-
-struct mutex context_event_handler_lock; /* synchroniz context_event_handler */
-static int htc_batt_context_event_handler(enum batt_context_event event)
-{
-
-	mutex_lock(&context_event_handler_lock);
-	switch (event) {
-	case EVENT_TALK_START:
-		htc_batt_phone_call = 1;
-		break;
-	case EVENT_TALK_STOP:
-		htc_batt_phone_call = 0;
-		break;
-	case EVENT_NETWORK_SEARCH_START:
-		break;
-	case EVENT_NETWORK_SEARCH_STOP:
-		break;
-	default:
-		pr_warn("unsupported context event (%d)\n", event);
-		goto exit;
-	}
-	BATT_LOG("event: 0x%x", event);
-
-exit:
-	mutex_unlock(&context_event_handler_lock);
-	return 0;
 }
 
 static int htc_batt_charger_control(enum charger_control_flag control)
@@ -674,7 +659,6 @@ static long htc_batt_ioctl(struct file *filp,
 		}
 		BATT_LOG("do charger control = %u", charger_mode);
 		htc_battery_set_charging(charger_mode);
-		htc_battery_core_update_changed();
 		break;
 	}
 	case HTC_BATT_IOCTL_UPDATE_BATT_INFO: {
@@ -976,8 +960,6 @@ static int htc_battery_probe(struct platform_device *pdev)
 	htc_battery_core_ptr->func_get_battery_info = htc_batt_get_battery_info;
 	htc_battery_core_ptr->func_charger_control = htc_batt_charger_control;
 	htc_battery_core_ptr->func_set_full_level = htc_batt_set_full_level;
-	htc_battery_core_ptr->func_context_event_handler = htc_batt_context_event_handler;
-
 	htc_battery_core_register(&pdev->dev, htc_battery_core_ptr);
 
 	htc_batt_info.device_id = pdev->id;
@@ -1096,7 +1078,6 @@ static int __init htc_battery_init(void)
 	wake_lock_init(&htc_batt_timer.battery_lock, WAKE_LOCK_SUSPEND,
 			"htc_battery_8x60");
 	mutex_init(&htc_batt_info.info_lock);
-	mutex_init(&context_event_handler_lock);
 #ifdef CONFIG_HTC_BATT_ALARM
 	mutex_init(&batt_set_alarm_lock);
 #endif

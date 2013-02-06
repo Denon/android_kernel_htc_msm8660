@@ -36,6 +36,16 @@ module_param_named(simlock_code, simlock_code, charp, S_IRUGO | S_IWUSR | S_IWGR
 #define SCM_ERROR		-1
 #define SCM_INTERRUPTED		1
 
+#if defined(__GNUC__) && \
+	defined(__GNUC_MINOR__) && \
+	defined(__GNUC_PATCHLEVEL__) && \
+	((__GNUC__ * 10000 + __GNUC_MINOR__ * 100 + __GNUC_PATCHLEVEL__)) \
+		>= 40502
+#define USE_ARCH_EXTENSION_SEC 1
+#else
+#define USE_ARCH_EXTENSION_SEC 0
+#endif
+
 static DEFINE_MUTEX(scm_lock);
 
 /**
@@ -497,9 +507,6 @@ int secure_access_item(unsigned int is_write, unsigned int id, unsigned int buf_
 
 	ret = scm_call(SCM_SVC_OEM, TZ_HTC_SVC_ACCESS_ITEM,
 			&req, sizeof(req), NULL, 0);
-
-	/* Invalid cache for coherence */
-	scm_inv_range((unsigned long)buf, (unsigned long)buf + buf_len);
 
 	pr_info("TZ_HTC_SVC_ACCESS_ITEM id %d ret = %d\n", id, ret);
 	return ret;

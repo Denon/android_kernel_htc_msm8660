@@ -23,10 +23,6 @@
 #include <linux/msm_adc.h>
 #include <mach/board.h>
 
-#ifdef CONFIG_RESET_BY_CABLE_IN
-#include <mach/board_htc.h>
-#endif
-
 #include <mach/cable_detect.h>
 #include <mach/mpp.h>
 #include <linux/switch.h>
@@ -213,10 +209,6 @@ static void check_vbus_in(struct work_struct *w)
 	level = gpio_get_value(pInfo->vbus_mpp_gpio);
 	vbus_in = (level) ? 0:1;
 	CABLE_INFO("%s: vbus = %d, vbus_in = %d\n", __func__, vbus, vbus_in);
-
-#ifdef CONFIG_RESET_BY_CABLE_IN
-	reset_dflipflop();
-#endif
 
 #ifdef CONFIG_FB_MSM_HDMI_MHL_SII9234
 	if (pInfo->cable_redetect) {
@@ -867,7 +859,6 @@ static int cable_detect_probe(struct platform_device *pdev)
 #ifdef CONFIG_CABLE_DETECT_ACCESSORY
 		pInfo->detect_type = pdata->detect_type;
 		pInfo->usb_id_pin_gpio = pdata->usb_id_pin_gpio;
-		pInfo->idpin_irq = pdata->idpin_irq;
 		pInfo->mhl_reset_gpio = pdata->mhl_reset_gpio;
 		pInfo->mpp_data = &pdata->mpp_data;
 		pInfo->config_usb_id_gpios = pdata->config_usb_id_gpios;

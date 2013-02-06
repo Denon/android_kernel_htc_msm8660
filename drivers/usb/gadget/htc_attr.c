@@ -12,7 +12,6 @@
  *
  */
 
-
 static ssize_t show_usb_function_switch(struct device *dev,
 		struct device_attribute *attr, char *buf)
 {

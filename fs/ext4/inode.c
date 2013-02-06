@@ -1134,15 +1134,6 @@ void ext4_da_update_reserve_space(struct inode *inode,
 		used = ei->i_reserved_data_blocks;
 	}
 
-	if (unlikely(ei->i_allocated_meta_blocks > ei->i_reserved_meta_blocks)) {
-		ext4_msg(inode->i_sb, KERN_NOTICE, "%s: ino %lu, allocated %d "
-			 "with only %d reserved metadata blocks\n", __func__,
-			 inode->i_ino, ei->i_allocated_meta_blocks,
-			 ei->i_reserved_meta_blocks);
-		WARN_ON(1);
-		ei->i_allocated_meta_blocks = ei->i_reserved_meta_blocks;
-	}
-
 	/* Update per-inode reservations */
 	ei->i_reserved_data_blocks -= used;
 	ei->i_reserved_meta_blocks -= ei->i_allocated_meta_blocks;
@@ -2199,6 +2190,8 @@ static void ext4_da_block_invalidatepages(struct mpage_da_data *mpd)
 
 	index = mpd->first_page;
 	end   = mpd->next_page - 1;
+
+	pagevec_init(&pvec, 0);
 	while (index <= end) {
 		nr_pages = pagevec_lookup(&pvec, mapping, index, PAGEVEC_SIZE);
 		if (nr_pages == 0)
@@ -2946,10 +2939,6 @@ static int ext4_da_writepages(struct address_space *mapping,
 	if (unlikely(sbi->s_mount_flags & EXT4_MF_FS_ABORTED))
 		return -EROFS;
 
-	/* return immediately if filesystem is mounted read-only */
-	if (unlikely(inode->i_sb->s_flags & MS_RDONLY))
-		return -EROFS;
-
 	if (wbc->range_start == 0 && wbc->range_end == LLONG_MAX)
 		range_whole = 1;
 
@@ -3225,14 +3214,13 @@ static int ext4_da_write_end(struct file *file,
 	int write_mode = (int)(unsigned long)fsdata;
 
 	if (write_mode == FALL_BACK_TO_NONDELALLOC) {
-		switch (ext4_inode_journal_mode(inode)) {
-		case EXT4_INODE_ORDERED_DATA_MODE:
+		if (ext4_should_order_data(inode)) {
 			return ext4_ordered_write_end(file, mapping, pos,
 					len, copied, page, fsdata);
-		case EXT4_INODE_WRITEBACK_DATA_MODE:
+		} else if (ext4_should_writeback_data(inode)) {
 			return ext4_writeback_write_end(file, mapping, pos,
 					len, copied, page, fsdata);
-		default:
+		} else {
 			BUG();
 		}
 	}
@@ -3524,17 +3512,12 @@ static ssize_t ext4_ind_direct_IO(int rw, struct kiocb *iocb,
 	}
 
 retry:
-	if (rw == READ && ext4_should_dioread_nolock(inode)) {
-		if (unlikely(!list_empty(&ei->i_completed_io_list))) {
-			mutex_lock(&inode->i_mutex);
-			ext4_flush_completed_IO(inode);
-			mutex_unlock(&inode->i_mutex);
-		}
+	if (rw == READ && ext4_should_dioread_nolock(inode))
 		ret = __blockdev_direct_IO(rw, iocb, inode,
 				 inode->i_sb->s_bdev, iov,
 				 offset, nr_segs,
 				 ext4_get_block, NULL, NULL, 0);
-	} else {
+	else {
 		ret = blockdev_direct_IO(rw, iocb, inode,
 				 inode->i_sb->s_bdev, iov,
 				 offset, nr_segs,
@@ -3932,25 +3915,18 @@ static const struct address_space_operations ext4_da_aops = {
 
 void ext4_set_aops(struct inode *inode)
 {
-	switch (ext4_inode_journal_mode(inode)) {
-	case EXT4_INODE_ORDERED_DATA_MODE:
-		if (test_opt(inode->i_sb, DELALLOC))
-			inode->i_mapping->a_ops = &ext4_da_aops;
-		else
-			inode->i_mapping->a_ops = &ext4_ordered_aops;
-		break;
-	case EXT4_INODE_WRITEBACK_DATA_MODE:
-		if (test_opt(inode->i_sb, DELALLOC))
-			inode->i_mapping->a_ops = &ext4_da_aops;
-		else
-			inode->i_mapping->a_ops = &ext4_writeback_aops;
-		break;
-	case EXT4_INODE_JOURNAL_DATA_MODE:
+	if (ext4_should_order_data(inode) &&
+		test_opt(inode->i_sb, DELALLOC))
+		inode->i_mapping->a_ops = &ext4_da_aops;
+	else if (ext4_should_order_data(inode))
+		inode->i_mapping->a_ops = &ext4_ordered_aops;
+	else if (ext4_should_writeback_data(inode) &&
+		 test_opt(inode->i_sb, DELALLOC))
+		inode->i_mapping->a_ops = &ext4_da_aops;
+	else if (ext4_should_writeback_data(inode))
+		inode->i_mapping->a_ops = &ext4_writeback_aops;
+	else
 		inode->i_mapping->a_ops = &ext4_journalled_aops;
-		break;
-	default:
-		BUG();
-	}
 }
 
 /*

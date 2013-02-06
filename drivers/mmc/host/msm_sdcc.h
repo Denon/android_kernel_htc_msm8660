@@ -284,10 +284,9 @@ struct msmsdcc_dma_data {
 };
 
 struct msmsdcc_pio_data {
-	struct sg_mapping_iter		sg_miter;
-	char				bounce_buf[4];
-	/* valid bytes in bounce_buf */
-	int				bounce_buf_len;
+	struct scatterlist	*sg;
+	unsigned int		sg_len;
+	unsigned int		sg_off;
 };
 
 struct msmsdcc_curr_req {
@@ -441,10 +440,8 @@ extern int mmc_wimax_get_status(void);
 extern void mmc_wimax_enable_host_wakeup(int on);
 extern int mmc_wimax_get_irq_log(void);
 
-extern void mmc_wimax_set_FWWakeupHostEvent(int on);
-extern int mmc_wimax_get_FWWakeupHostEvent(void);
-
-extern int mmc_wimax_get_disable_irq_config(void);
+void mmc_wimax_set_FWWakeupHostEvent(int on);
+int mmc_wimax_get_FWWakeupHostEvent(void);
 #endif
 
 
