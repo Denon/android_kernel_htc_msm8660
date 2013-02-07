@@ -246,8 +246,6 @@ void getnstimeofday(struct timespec *ts)
 
 		*ts = xtime;
 		nsecs = timekeeping_get_ns();
-		/* If arch requires, add in gettimeoffset() */
-		nsecs += arch_gettimeoffset();
 
 		/* If arch requires, add in gettimeoffset() */
 		nsecs += arch_gettimeoffset();

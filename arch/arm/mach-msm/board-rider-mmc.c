@@ -237,6 +237,7 @@ int rider_wifi_reset(int on)
 	return 0;
 }
 
+
 /* ---- MMC ---- */
 int __init rider_init_mmc()
 {

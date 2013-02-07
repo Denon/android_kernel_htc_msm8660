@@ -1772,7 +1772,7 @@ free_interfaces:
 
 	dev->actconfig = cp;
 	if (cp)
-		usb_notify_config_device(dev);
+	  usb_notify_config_device(dev);
 
 	/* Initialize the new interface structures and the
 	 * hc/hcd/usbcore interface/endpoint state.
@@ -1822,8 +1822,7 @@ free_interfaces:
 			      USB_REQ_SET_CONFIGURATION, 0, configuration, 0,
 			      NULL, 0, USB_CTRL_SET_TIMEOUT);
 	if (ret < 0 && cp) {
-		/*
-		 * All the old state is gone, so what else can we do?
+		/* All the old state is gone, so what else can we do?
 		 * The device is probably useless now anyway.
 		 */
 		usb_hcd_alloc_bandwidth(dev, NULL, NULL, NULL);
@@ -1840,10 +1839,11 @@ free_interfaces:
 
 	if (!cp) {
 		usb_set_device_state(dev, USB_STATE_ADDRESS);
-
+		
 		/* Leave LPM disabled while the device is unconfigured. */
 		usb_autosuspend_device(dev);
 		return ret;
+
 	}
 	usb_set_device_state(dev, USB_STATE_CONFIGURED);
 

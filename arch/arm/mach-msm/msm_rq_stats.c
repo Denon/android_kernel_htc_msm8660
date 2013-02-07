@@ -33,24 +33,6 @@
 
 static unsigned init_done = 0;
 
-#ifdef CONFIG_MSM_MPDEC
-unsigned int get_rq_info(void)
-{
-	unsigned long flags = 0;
-        unsigned int rq = 0;
-
-        spin_lock_irqsave(&rq_lock, flags);
-
-        rq = rq_info.rq_avg;
-        rq_info.rq_avg = 0;
-
-        spin_unlock_irqrestore(&rq_lock, flags);
-
-        return rq;
-}
-EXPORT_SYMBOL(get_rq_info);
-#endif
-
 static void def_work_fn(struct work_struct *work)
 {
 	int64_t diff;
@@ -117,10 +99,7 @@ static ssize_t store_run_queue_poll_ms(struct kobject *kobj,
 static ssize_t show_def_timer_ms(struct kobject *kobj,
 		struct kobj_attribute *attr, char *buf)
 {
-	int64_t diff_ms;
-	diff_ms = ktime_to_ns(ktime_get()) - rq_info.def_start_time;
-	do_div(diff_ms, 1000 * 1000);
-	return snprintf(buf, MAX_LONG_SIZE, "%lld\n", diff_ms);
+	return snprintf(buf, MAX_LONG_SIZE, "%u\n", rq_info.def_interval);
 }
 
 static ssize_t store_def_timer_ms(struct kobject *kobj,

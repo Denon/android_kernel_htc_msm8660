@@ -53,6 +53,7 @@ struct usb_id_mpp_config_data {
 struct cable_detect_platform_data {
 	int vbus_mpp_gpio;
 	int vbus_mpp_irq;
+	int vbus_uevent;
 	void (*vbus_mpp_config)(void);
 	/* 1 : uart, 0 : usb */
 	void (*usb_uart_switch)(int);
@@ -79,6 +80,8 @@ struct cable_detect_platform_data {
 	bool dock_detect;
 	int dock_pin_gpio;
 #endif
+	int idpin_irq;
+	int carkit_only;
 };
 
 /* -----------------------------------------------------------------------------

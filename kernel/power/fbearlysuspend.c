@@ -34,7 +34,9 @@ static void stop_drawing_early_suspend(struct early_suspend *h)
 	int ret;
 	unsigned long irq_flags;
 
-        msleep(350);
+	/* FIXME: earlysuspend breaks androids CRT-off animation
+	 * Sleep a little bit to get it played properly */
+	msleep(350);
 
 	spin_lock_irqsave(&fb_state_lock, irq_flags);
 	fb_state = FB_STATE_REQUEST_STOP_DRAWING;
@@ -137,7 +139,7 @@ static int __init android_power_init(void)
 
 	ret = sysfs_create_group(power_kobj, &attr_group);
 	if (ret) {
-		pr_err("android_power_init: sysfs_create_group failed\n");
+		pr_err("[K] android_power_init: sysfs_create_group failed\n");
 		return ret;
 	}
 

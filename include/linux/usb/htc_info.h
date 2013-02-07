@@ -47,7 +47,6 @@ extern void android_set_serialno(char *serialno);
 extern void android_force_reset(void);
 extern int htc_usb_enable_function(char *name, int ebl);
 
-
 #ifdef err
 #undef err
 #endif

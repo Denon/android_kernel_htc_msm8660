@@ -20,7 +20,6 @@
 #include <linux/debugfs.h>
 #include <linux/bitops.h>
 #include <linux/termios.h>
-#include <linux/ratelimit.h>
 #include <mach/usb_bridge.h>
 #include <mach/usb_gadget_xport.h>
 
