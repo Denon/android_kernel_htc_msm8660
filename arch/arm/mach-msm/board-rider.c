@@ -112,6 +112,7 @@
 #include <mach/rpm-regulator.h>
 #include <mach/restart.h>
 #include <mach/cable_detect.h>
+#include <linux/msm_tsens.h>
 
 #include "board-rider.h"
 #include "devices.h"
@@ -140,6 +141,13 @@
 
 #ifdef CONFIG_CPU_FREQ_GOV_ONDEMAND_2_PHASE
 int set_two_phase_freq(int cpufreq);
+#endif
+
+#ifdef CONFIG_CPU_FREQ_GOV_BADASS_2_PHASE
+int set_two_phase_freq_badass(int cpufreq);
+#endif
+#ifdef CONFIG_CPU_FREQ_GOV_BADASS_3_PHASE
+int set_three_phase_freq_badass(int cpufreq);
 #endif
 
 /* Macros assume PMIC GPIOs start at 0 */
@@ -447,25 +455,14 @@ static struct msm_spm_platform_data msm_spm_data[] __initdata = {
 
 #ifdef CONFIG_PERFLOCK
 static unsigned rider_perf_acpu_table[] = {
-	384000000,
-	756000000,
-        1188000000,
+	540000000,
+	1026000000,
+	1512000000,
 };
 
 static struct perflock_platform_data rider_perflock_data = {
 	.perf_acpu_table = rider_perf_acpu_table,
 	.table_size = ARRAY_SIZE(rider_perf_acpu_table),
-};
-
-static unsigned rider_cpufreq_ceiling_acpu_table[] = {
-	-1,
-	-1,
-	1026000000,
-};
-
-static struct perflock_platform_data rider_cpufreq_ceiling_data = {
-	.perf_acpu_table = rider_cpufreq_ceiling_acpu_table,
-	.table_size = ARRAY_SIZE(rider_cpufreq_ceiling_acpu_table),
 };
 #endif
 
@@ -484,8 +481,8 @@ static struct regulator_init_data saw_s0_init_data = {
 		.constraints = {
 			.name = "8901_s0",
 			.valid_ops_mask = REGULATOR_CHANGE_VOLTAGE,
-			.min_uV = 840000,
-			.max_uV = 1250000,
+			.min_uV = 750000,
+			.max_uV = 1350000,
 		},
 		.consumer_supplies = vreg_consumers_8901_S0,
 		.num_consumer_supplies = ARRAY_SIZE(vreg_consumers_8901_S0),
@@ -495,8 +492,8 @@ static struct regulator_init_data saw_s1_init_data = {
 		.constraints = {
 			.name = "8901_s1",
 			.valid_ops_mask = REGULATOR_CHANGE_VOLTAGE,
-			.min_uV = 840000,
-			.max_uV = 1250000,
+			.min_uV = 750000,
+			.max_uV = 1350000,
 		},
 		.consumer_supplies = vreg_consumers_8901_S1,
 		.num_consumer_supplies = ARRAY_SIZE(vreg_consumers_8901_S1),
@@ -1167,6 +1164,24 @@ static void msm_hsusb_vbus_power(bool on)
 
 	vbus_is_on = on;
 }
+
+/*
+static uint32_t usb_uart_switch_table[] = {
+	GPIO_CFG(RIDER_GPIO_CPU_WIMAX_UART_EN, 0, GPIO_CFG_OUTPUT,
+		GPIO_CFG_NO_PULL, GPIO_CFG_2MA)
+};
+
+static void config_rider_usb_uart_gpios(int uart)
+{
+	config_gpio_table(usb_uart_switch_table, ARRAY_SIZE(usb_uart_switch_table));
+	printk("%s: %d\n", __func__, uart);
+	if (uart) {
+		gpio_set_value(RIDER_GPIO_CPU_WIMAX_UART_EN, 0);
+	} else {
+		gpio_set_value(RIDER_GPIO_CPU_WIMAX_UART_EN, 1);
+	}
+}
+*/
 
 /* ToDo: mark it */
 /* #if defined(CONFIG_USB_GADGET_MSM_72K) || defined(CONFIG_USB_EHCI_MSM_72K) */
@@ -2880,8 +2895,8 @@ static struct regulator_consumer_supply vreg_consumers_PM8901_S4_PC[] = {
 /* RPM early regulator constraints */
 static struct rpm_regulator_init_data rpm_regulator_early_init_data[] = {
 	/*	 ID       a_on pd ss min_uV   max_uV   init_ip    freq */
-	RPM_SMPS(PM8058_S0, 0, 1, 1,  500000, 1250000, SMPS_HMIN, 1p92),
-	RPM_SMPS(PM8058_S1, 0, 1, 1,  500000, 1250000, SMPS_HMIN, 1p92),
+	RPM_SMPS(PM8058_S0, 0, 1, 1,  500000, 1350000, SMPS_HMIN, 1p92),
+	RPM_SMPS(PM8058_S1, 0, 1, 1,  500000, 1350000, SMPS_HMIN, 1p92),
 };
 
 /* RPM regulator constraints */
@@ -3046,9 +3061,11 @@ static struct platform_device *early_devices[] __initdata = {
 #endif
 };
 
-static struct platform_device msm_tsens_device = {
-	.name   = "tsens-tm",
-	.id = -1,
+static struct tsens_platform_data pyr_tsens_pdata  = {
+                .tsens_factor           = 1000,
+                .hw_type                = MSM_8660,
+                .tsens_num_sensor       = 6,
+                .slope                  = 702,
 };
 
 #ifdef CONFIG_SENSORS_MSM_ADC
@@ -3500,7 +3517,7 @@ static struct pm8058_led_config pm_led_config[] = {
 		.name = "button-backlight",
 		.type = PM8058_LED_DRVX,
 		.bank = 6,
-		.flags = PM8058_LED_LTU_EN,
+		.flags = PM8058_LED_LTU_EN | PM8058_LED_DYNAMIC_BRIGHTNESS_EN,
 		.period_us = USEC_PER_SEC / 1000,
 		.start_index = 0,
 		.duites_size = 8,
@@ -3804,7 +3821,6 @@ static struct platform_device *rider_devices[] __initdata = {
 	&msm_device_rng,
 #endif
 
-	&msm_tsens_device,
 	&msm_rpm_device,
 	&cable_detect_device,
 #ifdef CONFIG_BT
@@ -4023,6 +4039,19 @@ static int pm8058_gpios_init(void)
 				.out_strength	= PM_GPIO_STRENGTH_HIGH,
 				.function	= PM_GPIO_FUNC_NORMAL,
 				.vin_sel	= PM8058_GPIO_VIN_S3, /* 1.8 V */
+				.inv_int_pol	= 0,
+			}
+		},
+		{
+			PM8058_GPIO_PM_TO_SYS(RIDER_WIMAX_HOST_WAKEUP),
+			{
+				.direction	= PM_GPIO_DIR_IN,
+				.output_value	= 0,
+				.output_buffer	= 0,
+				.pull		= PM_GPIO_PULL_NO,
+				.out_strength	= PM_GPIO_STRENGTH_HIGH,
+				.function	= PM_GPIO_FUNC_NORMAL,
+				.vin_sel	= PM8058_GPIO_VIN_S3,
 				.inv_int_pol	= 0,
 			}
 		},
@@ -6437,6 +6466,9 @@ static void __init msm8x60_init(struct msm_board_data *board_data)
 
 	raw_speed_bin = readl(QFPROM_SPEED_BIN_ADDR);
 	speed_bin = raw_speed_bin & 0xF;
+
+	msm_tsens_early_init(&pyr_tsens_pdata);
+
 	/*
 	 * Initialize RPM first as other drivers and devices may need
 	 * it for their initialization.
@@ -6507,11 +6539,17 @@ static void __init msm8x60_init(struct msm_board_data *board_data)
 
 #ifdef CONFIG_PERFLOCK
 	perflock_init(&rider_perflock_data);
-	cpufreq_ceiling_init(&rider_cpufreq_ceiling_data);
 #endif
 
 #ifdef CONFIG_CPU_FREQ_GOV_ONDEMAND_2_PHASE
 	set_two_phase_freq(1134000);
+#endif
+
+#ifdef CONFIG_CPU_FREQ_GOV_BADASS_2_PHASE
+	set_two_phase_freq_badass(CONFIG_CPU_FREQ_GOV_BADASS_2_PHASE_FREQ);
+#endif
+#ifdef CONFIG_CPU_FREQ_GOV_BADASS_3_PHASE
+	set_three_phase_freq_badass(CONFIG_CPU_FREQ_GOV_BADASS_3_PHASE_FREQ);
 #endif
 
 	msm8x60_init_tlmm();

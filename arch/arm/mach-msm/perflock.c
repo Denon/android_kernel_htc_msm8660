@@ -646,7 +646,8 @@ void __init perflock_init(struct perflock_platform_data *pdata)
 
 	BUG_ON(cpufreq_frequency_table_cpuinfo(&policy, table));
 	policy_min = policy.cpuinfo.min_freq;
-	policy_max = policy.cpuinfo.max_freq;
+  //policy_max = policy.cpuinfo.max_freq;
+    policy_max = 1512000;
 
 	if (!pdata)
 		goto invalid_config;
@@ -676,7 +677,7 @@ void __init perflock_init(struct perflock_platform_data *pdata)
 	return;
 
 invalid_config:
-	pr_err("[K] %s: invalid configuration data, %p %d %d\n", __func__,
+	pr_err("%s: invalid configuration data, %p %d %d\n", __func__,
 		perf_acpu_table, table_size, PERF_LOCK_INVALID);
 }
 

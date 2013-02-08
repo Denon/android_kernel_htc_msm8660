@@ -32,7 +32,7 @@ obj-$(CONFIG_MACH_VIGOR) += s5k3h2yx_reg_vigor.o ov8830_reg_vigor.o mt9d015_reg_
 obj-$(CONFIG_MACH_RUBY) += s5k3h2yx_reg_holiday.o mt9d015_reg_vigor.o
 obj-$(CONFIG_MACH_DOUBLESHOT) += s5k3h2yx_reg_dot.o mt9v113_reg_dot.o
 ifneq ($(CONFIG_MSM_CAMERA_V4L2),y)
-obj-$(CONFIG_MACH_RIDER) += s5k3h2yx_reg_holiday.o s5k6aafx_reg_rider.o s5k6aafx_reg_rider_cob.o
+obj-$(CONFIG_MACH_RIDER) += s5k3h2yx_reg_holiday.o s5k6aafx_reg_rider.o s5k6aafx_reg_rider_cob.o ov8830_reg_vigor.o
 endif
 obj-$(CONFIG_MACH_VILLEC2) += s5k3h2yx_reg_holiday.o s5k6aafx_reg_villec2.o s5k6aafx_reg_villec2_cob.o ov8830_reg_vigor.o
 obj-$(CONFIG_MACH_RUNNYMEDE) += s5k3h2yx_reg_runnymede.o ov8830_reg_runnymede.o s5k6aafx_reg_runnymede_cob.o
