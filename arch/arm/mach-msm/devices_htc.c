@@ -262,19 +262,6 @@ int unregister_notifier_by_psensor(struct notifier_block *nb)
 	return blocking_notifier_chain_unregister(&psensor_notifier_list, nb);
 }
 
-#if defined(CONFIG_TOUCH_KEY_FILTER)
-BLOCKING_NOTIFIER_HEAD(touchkey_notifier_list);
-int register_notifier_by_touchkey(struct notifier_block *nb)
-{
-	return blocking_notifier_chain_register(&touchkey_notifier_list, nb);
-}
-
-int unregister_notifier_by_touchkey(struct notifier_block *nb)
-{
-	return blocking_notifier_chain_unregister(&touchkey_notifier_list, nb);
-}
-#endif
-
 #define ATAG_HERO_PANEL_TYPE 0x4d534D74
 int panel_type;
 int __init tag_panel_parsing(const struct tag *tags)

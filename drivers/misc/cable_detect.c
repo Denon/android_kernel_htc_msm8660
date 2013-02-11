@@ -23,10 +23,6 @@
 #include <linux/msm_adc.h>
 #include <mach/board.h>
 
-#ifdef CONFIG_RESET_BY_CABLE_IN
-#include <mach/board_htc.h>
-#endif
-
 #include <mach/cable_detect.h>
 #include <mach/mpp.h>
 #include <linux/switch.h>
@@ -120,7 +116,7 @@ static void send_cable_connect_notify(int cable_type)
 	CABLE_DEBUG("%s: cable_type = %d\n", __func__, cable_type);
 
 	if (cable_type == CONNECT_TYPE_UNKNOWN)
-		cable_type = CONNECT_TYPE_USB;
+		cable_type = CONNECT_TYPE_AC;
 
 	if (pInfo->ac_9v_gpio && (cable_type == CONNECT_TYPE_USB
 				|| cable_type == CONNECT_TYPE_AC)) {
@@ -149,7 +145,6 @@ static void send_cable_connect_notify(int cable_type)
 				CABLE_INFO("Send to: %s, type %d\n",
 						notifier->name, cable_type);
 				/* Notify other drivers about connect type. */
-				/* use slow charging for unknown type*/
 				notifier->func(cable_type);
 			}
 		}
@@ -213,10 +208,6 @@ static void check_vbus_in(struct work_struct *w)
 	level = gpio_get_value(pInfo->vbus_mpp_gpio);
 	vbus_in = (level) ? 0:1;
 	CABLE_INFO("%s: vbus = %d, vbus_in = %d\n", __func__, vbus, vbus_in);
-
-#ifdef CONFIG_RESET_BY_CABLE_IN
-	reset_dflipflop();
-#endif
 
 #ifdef CONFIG_FB_MSM_HDMI_MHL_SII9234
 	if (pInfo->cable_redetect) {

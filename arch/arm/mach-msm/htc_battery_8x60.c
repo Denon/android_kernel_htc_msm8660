@@ -37,6 +37,11 @@
 #include <linux/android_alarm.h>
 #include <linux/suspend.h>
 #include <linux/earlysuspend.h>
+
+#ifdef CONFIG_FORCE_FAST_CHARGE
+#include <linux/fastchg.h>
+#endif
+
 #include <mach/rpm.h>
 
 #define BATT_SUSPEND_CHECK_TIME			3600
@@ -220,6 +225,7 @@ static int batt_set_voltage_alarm_mode(int mode)
 	case BATT_ALARM_CRITICAL_MODE:
 		rc = batt_set_voltage_alarm(BATT_CRITICAL_LOW_VOLTAGE,
 			alarm_data.upper_threshold);
+		msm_rpm_check_rtc();
 	break;
 	default:
 	case BATT_ALARM_NORMAL_MODE:
@@ -314,12 +320,34 @@ static void cable_status_notifier_func(enum usb_connect_type online)
 
 	switch (online) {
 	case CONNECT_TYPE_USB:
+#ifdef CONFIG_FORCE_FAST_CHARGE
+		/* If forced fast charge is enabled "always" or if no USB device detected, go AC */
+		if ((force_fast_charge == FAST_CHARGE_FORCE_AC) ||
+		    (force_fast_charge == FAST_CHARGE_FORCE_AC_IF_NO_USB &&
+       	             USB_peripheral_detected == USB_ACC_NOT_DETECTED        )) {
+			BATT_LOG("cable USB forced to AC");
+			is_fast_charge_forced = FAST_CHARGE_FORCED;
+			current_charge_mode = CURRENT_CHARGE_MODE_AC;
+			htc_batt_info.rep.charging_source = CHARGER_AC;
+			radio_set_cable_status(CHARGER_AC);
+		} else {
+			BATT_LOG("cable USB not forced to AC");
+			is_fast_charge_forced = FAST_CHARGE_NOT_FORCED;
+			current_charge_mode = CURRENT_CHARGE_MODE_USB;
+			htc_batt_info.rep.charging_source = CHARGER_USB;
+			radio_set_cable_status(CHARGER_USB);
+		}
+#else
 		BATT_LOG("cable USB");
 		htc_batt_info.rep.charging_source = CHARGER_USB;
 		radio_set_cable_status(CHARGER_USB);
+#endif
 		break;
 	case CONNECT_TYPE_AC:
 		BATT_LOG("cable AC");
+#ifdef CONFIG_FORCE_FAST_CHARGE
+		current_charge_mode = CURRENT_CHARGE_MODE_AC;
+#endif
 		htc_batt_info.rep.charging_source = CHARGER_AC;
 		radio_set_cable_status(CHARGER_AC);
 		break;
@@ -330,6 +358,9 @@ static void cable_status_notifier_func(enum usb_connect_type online)
 		break;
 	case CONNECT_TYPE_UNKNOWN:
 		BATT_ERR("unknown cable");
+#ifdef CONFIG_FORCE_FAST_CHARGE
+		current_charge_mode = CURRENT_CHARGE_MODE_USB;
+#endif
 		htc_batt_info.rep.charging_source = CHARGER_USB;
 		break;
 	case CONNECT_TYPE_INTERNAL:
@@ -674,7 +705,6 @@ static long htc_batt_ioctl(struct file *filp,
 		}
 		BATT_LOG("do charger control = %u", charger_mode);
 		htc_battery_set_charging(charger_mode);
-		htc_battery_core_update_changed();
 		break;
 	}
 	case HTC_BATT_IOCTL_UPDATE_BATT_INFO: {

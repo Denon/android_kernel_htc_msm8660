@@ -145,8 +145,6 @@ struct otg_transceiver {
 
 	void	(*notify_charger)(int connect_type);
 
-	void (*notify_usb_attached)(void);
-
 };
 
 

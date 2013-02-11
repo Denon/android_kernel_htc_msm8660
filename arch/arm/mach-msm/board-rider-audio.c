@@ -225,8 +225,6 @@ void rider_snddev_emic_pamp_on(int en)
 			msleep(50);
 			gpio_set_value(PM8058_GPIO_PM_TO_SYS(RIDER_AUD_HP_EN), 1);
 			set_headset_amp(1);
-		} else {
-			gpio_set_value(PM8058_GPIO_PM_TO_SYS(RIDER_AUD_MIC_SEL), 1); // turn on MIC_SEL
 		}
 		// Modify for Rider_ICS_35_S #84 - end
 	}

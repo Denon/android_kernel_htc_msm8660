@@ -144,8 +144,6 @@ enum usb_chg_type {
  * @otg_control: OTG switch controlled by user/Id pin
  * @default_mode: Default operational mode. Applicable only if
  *              OTG switch is controller by user.
- * @pclk_src_name: pclk is derived from ebi1_usb_clk in case of 7x27 and 8k
- *              dfab_usb_hs_clk in case of 8660 and 8960
  * @pmic_id_irq: IRQ number assigned for PMIC USB ID line.
  * @mhl_enable: indicates MHL connector or not.
  * @ido_3v3_name: the regulator provide 3.075(3.3)V to PHY
@@ -165,7 +163,6 @@ struct msm_otg_platform_data {
 	enum usb_mode_type default_mode;
 	enum msm_usb_phy_type phy_type;
 	void (*setup_gpio)(enum usb_otg_state state);
-	const char *pclk_src_name;
 	int pmic_id_irq;
 	bool mhl_enable;
 	char *ldo_3v3_name;
@@ -175,13 +172,9 @@ struct msm_otg_platform_data {
 	/* This flag is against the condition that PHY fail into lpm when DCP is attached. */
 	int reset_phy_before_lpm;
 	bool phy_notify_enabled;
-	/* 1 : uart, 0 : usb */
 	void (*usb_uart_switch)(int uart);
 	int (*rpc_connect)(int connect);
 	int (*phy_reset)(void);
-	void (*usb_hub_enable)(bool);
-	void (*serial_debug_gpios)(int);
-	int (*china_ac_detect)(void);
 };
 
 /**
@@ -189,13 +182,11 @@ struct msm_otg_platform_data {
  * @otg: USB OTG Transceiver structure.
  * @pdata: otg device platform data.
  * @irq: IRQ number assigned for HSUSB controller.
- * @clk: clock struct of usb_hs_clk.
- * @pclk: clock struct of usb_hs_pclk.
- * @pclk_src: pclk source for voting.
- * @phy_reset_clk: clock struct of usb_phy_clk.
- * @core_clk: clock struct of usb_hs_core_clk.
- * @system_clk: clock struct of usb_system_clk.
- * @regs: ioremapped register base address.
+ * @clk: clock struct of alt_core_clk.
+ * @pclk: clock struct of iface_clk.
+ * @phy_reset_clk: clock struct of phy_clk.
+ * @core_clk: clock struct of core_bus_clk.
+* @regs: ioremapped register base address.
  * @inputs: OTG state machine inputs(Id, SessValid etc).
  * @sm_work: OTG state machine work.
  * @in_lpm: indicates low power mode (LPM) state.
@@ -222,10 +213,8 @@ struct msm_otg {
 	int irq;
 	struct clk *clk;
 	struct clk *pclk;
-	struct clk *pclk_src;
 	struct clk *phy_reset_clk;
 	struct clk *core_clk;
-	struct clk *system_clk;
 	void __iomem *regs;
 #define ID		0
 #define B_SESS_VLD	1
@@ -270,7 +259,6 @@ struct msm_otg {
 #define PHY_RETENTIONED			BIT(1)
 #define PHY_OTG_COMP_DISABLED		BIT(2)
 	struct work_struct notifier_work;
-	struct work_struct usb_hub_work;
 	enum usb_connect_type connect_type;
 	int connect_type_ready;
 	struct workqueue_struct *usb_wq;

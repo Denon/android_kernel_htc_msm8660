@@ -43,16 +43,20 @@
 #include "../../../arch/arm/mach-msm/board-primodd.h"
 
 extern u8 radio_state;
+extern int	uart2dm_status;
 extern u8 modem_fatal;
+#endif
 
 #include <mach/board_htc.h>
-static int uart2_debug_mask = 0;
+static int uart2_debug_mask;
 #define MODULE_NAME "[GSM_RADIO]" /* HTC version */
-#define pr_uartdm_debug(x...) do {                             \
+#if defined(pr_debug)
+#undef pr_debug
+#endif
+#define pr_debug(x...) do {                             \
                 if (uart2_debug_mask) \
                         printk(KERN_DEBUG MODULE_NAME " "x);            \
         } while (0)
-#endif
 
 /*
  * This is used to lock changes in serial line configuration.
@@ -540,24 +544,22 @@ static int uart_write(struct tty_struct *tty,
 
 #ifdef CONFIG_IMC_UART2DM_HANDSHAKE
 	/* the handshaking cannot be called within irq, therefore we put it within tty driver, instead of uart driver */
-	if (!strcmp(tty->name,"ttyHS1") && !modem_fatal) {
-		if (!radio_state) {
-			printk("[GSM_RADIO] %s %s radio is off \n",__func__, tty->name);
-			return -EINVAL;
-		}
+	if (!strcmp(tty->name,"ttyHS1") && !modem_fatal){
+		if (!radio_state)
+			return 0;
 
 		imc_msm_hs_request_clock_on(port);
 
-		pr_uartdm_debug("%s %s PDA_INT_BB + \n",__func__, tty->name);
+		pr_debug("%s %s set GPIO_PDA_INT_BB high+ \n",__func__, tty->name);
 		gpio_set_value(PRIMODD_GPIO_AP_XMM_WAKE, 1);
-		mdelay(1);
+		msleep(1);
 		while(!gpio_get_value(PRIMODD_GPIO_XMM_AP_STATUS)){
 			gpio_set_value(PRIMODD_GPIO_AP_XMM_WAKE, 0);
 			msleep(5);
 			gpio_set_value(PRIMODD_GPIO_AP_XMM_WAKE, 1);
 			msleep(20);
 			if (retries>40){
-				printk("[GSM_RADIO] %s %s wait for BB_STATUS + timeout \n",__func__, tty->name);
+				printk("[GSM_RADIO] %s %s wait for GPIO_BB_STATUS high timeout \n",__func__, tty->name);
 				return -EAGAIN;
 			}
 			retries++;
@@ -2356,15 +2358,15 @@ int uart_register_driver(struct uart_driver *drv)
 
 	retval = tty_register_driver(normal);
 
-#ifdef CONFIG_IMC_UART2DM_HANDSHAKE
-	if (!strcmp(drv->driver_name, "msm_serial_hs_imc"))
-	{
-		if (get_kernel_flag() & BIT(21)){
-			uart2_debug_mask = 1;
-			printk(KERN_DEBUG MODULE_NAME " %s enable uart2 debug msg\n", __func__);
-		}
+	if ((!strcmp(drv->driver_name, "msm_serial_hs_imc"))
+		&& (get_kernel_flag() & BIT(21))){
+		uart2_debug_mask = 1;
+		printk(KERN_DEBUG MODULE_NAME " %s enable uart2 debug msg\n", __func__);
 	}
-#endif
+	else{
+		uart2_debug_mask = 0;
+		printk(KERN_DEBUG MODULE_NAME " %s disable uart2 debug msg\n", __func__);
+	}
 
 	if (retval >= 0)
 		return retval;

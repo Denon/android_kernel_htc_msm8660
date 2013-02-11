@@ -1,0 +1,14 @@
+# Added by HTC Display/Graphics for msm gpu driver
+
+config MSM_KGSL_ADRENO220
+        bool "MSM 3D Graphics driver for Adreno220"
+        depends on FB_MSM && ARCH_MSM8X60
+        default y
+        help
+          3D graphics driver for Adreno220. Required to
+          use hardware accelerated OpenGL ES 2.0 and 1.1 on these
+          chips.
+
+if MSM_KGSL_ADRENO220
+source "drivers/gpu/msm/Kconfig"
+endif

@@ -1165,30 +1165,12 @@ static void msm_hsusb_vbus_power(bool on)
 	vbus_is_on = on;
 }
 
-/*
-static uint32_t usb_uart_switch_table[] = {
-	GPIO_CFG(RIDER_GPIO_CPU_WIMAX_UART_EN, 0, GPIO_CFG_OUTPUT,
-		GPIO_CFG_NO_PULL, GPIO_CFG_2MA)
-};
-
-static void config_rider_usb_uart_gpios(int uart)
-{
-	config_gpio_table(usb_uart_switch_table, ARRAY_SIZE(usb_uart_switch_table));
-	printk("%s: %d\n", __func__, uart);
-	if (uart) {
-		gpio_set_value(RIDER_GPIO_CPU_WIMAX_UART_EN, 0);
-	} else {
-		gpio_set_value(RIDER_GPIO_CPU_WIMAX_UART_EN, 1);
-	}
-}
-*/
-
 /* ToDo: mark it */
 /* #if defined(CONFIG_USB_GADGET_MSM_72K) || defined(CONFIG_USB_EHCI_MSM_72K) */
 static int rider_phy_init_seq[] = { 0x06, 0x36, 0x0C, 0x31, 0x31, 0x32, 0x1, 0x0E, 0x1, 0x11, -1 };
 static struct msm_otg_platform_data msm_otg_pdata = {
 	.phy_init_seq		= rider_phy_init_seq,
-	.mode			= USB_PERIPHERAL,
+	.mode			= USB_OTG,
 	.otg_control		= OTG_PMIC_CONTROL,
 	.phy_type		= SNPS_28NM_INTEGRATED_PHY,
 	.vbus_power		= msm_hsusb_vbus_power,
@@ -1791,7 +1773,7 @@ static struct msm_camera_sensor_flash_src msm_flash_src = {
 
 static struct camera_flash_cfg msm_camera_sensor_flash_cfg = {
 	.low_temp_limit		= 10,
-	.low_cap_limit		= 15,
+	.low_cap_limit		= 5,
 };
 
 #ifdef CONFIG_S5K3H2YX
@@ -3750,6 +3732,7 @@ static struct platform_device *rider_devices[] __initdata = {
 #endif
 
 	&msm_device_otg,
+	&msm_device_hsusb_host,
 #ifdef CONFIG_BATTERY_MSM
 	&msm_batt_device,
 #endif
@@ -4039,19 +4022,6 @@ static int pm8058_gpios_init(void)
 				.out_strength	= PM_GPIO_STRENGTH_HIGH,
 				.function	= PM_GPIO_FUNC_NORMAL,
 				.vin_sel	= PM8058_GPIO_VIN_S3, /* 1.8 V */
-				.inv_int_pol	= 0,
-			}
-		},
-		{
-			PM8058_GPIO_PM_TO_SYS(RIDER_WIMAX_HOST_WAKEUP),
-			{
-				.direction	= PM_GPIO_DIR_IN,
-				.output_value	= 0,
-				.output_buffer	= 0,
-				.pull		= PM_GPIO_PULL_NO,
-				.out_strength	= PM_GPIO_STRENGTH_HIGH,
-				.function	= PM_GPIO_FUNC_NORMAL,
-				.vin_sel	= PM8058_GPIO_VIN_S3,
 				.inv_int_pol	= 0,
 			}
 		},
@@ -5288,6 +5258,7 @@ static void __init msm8x60_init_buses(void)
 #endif
 
 #ifdef CONFIG_SERIAL_MSM_HS
+	msm_uart_dm1_pdata.rx_wakeup_irq = gpio_to_irq(RIDER_GPIO_BT_HOST_WAKE);
 	msm_device_uart_dm1.dev.platform_data = &msm_uart_dm1_pdata;
 #endif
 
