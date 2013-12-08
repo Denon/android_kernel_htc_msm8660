@@ -1,18 +1,16 @@
 /*
-* Author: Chad Froebel <chadfroebel@gmail.com>
-*
-* Ported to Sensation and extended : Jean-Pierre Rasquin <yank555.lu@gmail.com>
-* 
-* This software is licensed under the terms of the GNU General Public
-* License version 2, as published by the Free Software Foundation, and
-* may be copied, distributed, and modified under those terms.
-*
-* This program is distributed in the hope that it will be useful,
-* but WITHOUT ANY WARRANTY; without even the implied warranty of
-* MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
-* GNU General Public License for more details.
-*
-*/
+ * Author: Chad Froebel <chadfroebel@gmail.com>
+ * 
+ * This software is licensed under the terms of the GNU General Public
+ * License version 2, as published by the Free Software Foundation, and
+ * may be copied, distributed, and modified under those terms.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU General Public License for more details.
+ *
+ */
 
 /*
  * Possible values for "force_fast_charge" are :
@@ -48,7 +46,6 @@
  *   0 - Discharging
  *   1 - AC
  *   2 - USB
- *
  */
 
 #include <linux/kobject.h>
@@ -99,7 +96,11 @@ static struct attribute_group force_fast_charge_attr_group = {
 /* sysfs interface for "USB_peripheral_detected" */
 static ssize_t USB_peripheral_detected_show(struct kobject *kobj, struct kobj_attribute *attr, char *buf)
 {
-return sprintf(buf, "%d\n", USB_peripheral_detected);
+	switch (USB_peripheral_detected) {
+		case USB_ACC_NOT_DETECTED:	return sprintf(buf, "No\n");
+		case USB_ACC_DETECTED:		return sprintf(buf, "Yes\n");
+		default:			return sprintf(buf, "something went wrong\n");
+	}
 }
 
 static ssize_t USB_peripheral_detected_store(struct kobject *kobj, struct kobj_attribute *attr, const char *buf, size_t count)
@@ -120,7 +121,6 @@ static struct attribute_group USB_peripheral_detected_attr_group = {
 .attrs = USB_peripheral_detected_attrs,
 };
 
-static struct kobject *force_fast_charge_kobj;
 /* sysfs interface for "USB_porttype_detected" */
 static ssize_t USB_porttype_detected_show(struct kobject *kobj, struct kobj_attribute *attr, char *buf)
 {
@@ -184,6 +184,7 @@ static struct attribute_group is_fast_charge_forced_attr_group = {
 .attrs = is_fast_charge_forced_attrs,
 };
 
+
 /* sysfs interface for "current_charge_mode" */
 static ssize_t current_charge_mode_show(struct kobject *kobj, struct kobj_attribute *attr, char *buf)
 {
@@ -223,7 +224,7 @@ int force_fast_charge_init(void)
 	int USB_porttype_detected_retval;
 	int is_fast_charge_forced_retval;
 	int current_charge_mode_retval;
- 
+
 	force_fast_charge = FAST_CHARGE_DISABLED; /* Forced fast charge disabled by default */
 	USB_peripheral_detected = USB_ACC_NOT_DETECTED; /* Consider no USB accessory detected so far */
 	USB_porttype_detected = NO_USB_DETECTED; /* Consider no USB port is yet detected */
@@ -238,8 +239,8 @@ int force_fast_charge_init(void)
         USB_peripheral_detected_retval = sysfs_create_group(force_fast_charge_kobj, &USB_peripheral_detected_attr_group);
         USB_porttype_detected_retval = sysfs_create_group(force_fast_charge_kobj, &USB_porttype_detected_attr_group);
         is_fast_charge_forced_retval = sysfs_create_group(force_fast_charge_kobj, &is_fast_charge_forced_attr_group);
-		current_charge_mode_retval = sysfs_create_group(force_fast_charge_kobj, &current_charge_mode_attr_group);
-		if (force_fast_charge_retval && USB_peripheral_detected_retval && USB_porttype_detected_retval && is_fast_charge_forced_retval && current_charge_mode_retval)
+        current_charge_mode_retval = sysfs_create_group(force_fast_charge_kobj, &current_charge_mode_attr_group);
+        if (force_fast_charge_retval && USB_peripheral_detected_retval && USB_porttype_detected_retval && is_fast_charge_forced_retval && current_charge_mode_retval)
                 kobject_put(force_fast_charge_kobj);
         return (force_fast_charge_retval && USB_peripheral_detected_retval && USB_porttype_detected_retval && is_fast_charge_forced_retval && current_charge_mode_retval);
 }
@@ -247,7 +248,7 @@ int force_fast_charge_init(void)
 
 void force_fast_charge_exit(void)
 {
-kobject_put(force_fast_charge_kobj);
+	kobject_put(force_fast_charge_kobj);
 }
 
 module_init(force_fast_charge_init);

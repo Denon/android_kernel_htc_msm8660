@@ -192,6 +192,14 @@ config  ARCH_MSM_KRAIT
 config  MSM_SMP
 	bool
 
+config MSM_MPDEC
+	bool "Enable kernel based mpdecision"
+	depends on MSM_SMP
+	default n
+	help
+	  This enables kernel based multi core control.
+	  (up/down hotplug based on load)
+
 config  ARCH_MSM_SCORPIONMP
 	select ARCH_MSM_SCORPION
 	select MSM_SMP
@@ -204,6 +212,8 @@ config  ARCH_MSM_KRAITMP
 
 config  ARCH_MSM_CORTEX_A5
 	bool
+	select PERF_EVENTS if !ARCH_MSM9615
+	select HAVE_HW_BREAKPOINT if !ARCH_MSM9615
 	select HAVE_HW_BRKPT_RESERVED_RW_ACCESS
 
 config ARCH_MSM7X27A
@@ -256,22 +266,22 @@ config PERFLOCK_SCREEN_POLICY
 config PERFLOCK_SCREEN_ON_MIN
         depends on PERFLOCK_SCREEN_POLICY
         int "Minimum speed while screen on"
-        default MSM_CPU_FREQ_MIN
+        default MSM_CPU_FREQ_ONDEMAND_MIN
 
 config PERFLOCK_SCREEN_ON_MAX
         depends on PERFLOCK_SCREEN_POLICY
         int "Maximum speed while screen on"
-        default MSM_CPU_FREQ_MAX
+        default MSM_CPU_FREQ_ONDEMAND_MAX
 
 config PERFLOCK_SCREEN_OFF_MIN
         depends on PERFLOCK_SCREEN_POLICY
         int "Minimum speed while screen off"
-        default MSM_CPU_FREQ_MIN
+        default MSM_CPU_FREQ_ONDEMAND_MIN
 
 config PERFLOCK_SCREEN_OFF_MAX
         depends on PERFLOCK_SCREEN_POLICY
         int "Maximum speed while screen off"
-        default 486000
+        default MSM_CPU_FREQ_ONDEMAND_MIN
 
 menu "MSM Board Selection"
 
@@ -542,8 +552,16 @@ config MACH_PRIMOTD
        depends on ARCH_MSM7X30
        default n
        bool "Primotd"
+       select DONT_MAP_HOLE_AFTER_MEMBANK0
        help
          Support for the Qualcomm Primotd board.
+
+config MACH_GOLFC
+       depends on ARCH_MSM7X30
+       default n
+       bool "Golfc"
+       help
+         Support for the Qualcomm Golfc board.
 
 config MACH_VIVOW_EVM
        depends on ARCH_MSM7X30
@@ -726,6 +744,14 @@ config MACH_RIDER
         help
           Support for the RIDER device.
 
+config MACH_VILLEC2
+        depends on ARCH_MSM8X60
+        default n
+        bool "VILLEC2"
+        select SMP_PARALLEL_START
+        help
+         Support for the VILLEC2 device.
+
 config MACH_VERDI_LTE
 	depends on ARCH_MSM8X60
 	default n
@@ -746,6 +772,13 @@ config MACH_VIGOR
 	bool "Vigor"
 	help
 	  Support for the Vigor device.
+
+config MACH_DOUBLESHOT
+	depends on ARCH_MSM8X60
+	default n
+	bool "Doubleshot"
+	help
+	  Support for the Doubleshot device.
 
 config MACH_RUBY
 	depends on ARCH_MSM8X60
@@ -928,6 +961,13 @@ config KERNEL_PMEM_SMI_REGION
 	depends on ANDROID_PMEM && ((ARCH_QSD8X50 && !PMEM_GPU0) || (ARCH_MSM8X60 && !VCM))
 	help
 	   Enable the in-kernel PMEM allocator to use SMI memory.
+
+config PANEL_SELF_REFRESH
+	depends on (MACH_SPADE || MACH_MECHA)
+	default n
+	bool "Panel Self-refresh"
+	help
+	    Support for the board Spade/Mecha Panel Self-refresh.
 
 config PMEM_GPU0
 	bool "Enable PMEM GPU0 region"
@@ -1574,37 +1614,7 @@ config MSM_DALRPC_TEST
 
 config CPU_VOLTAGE_TABLE
 	bool "Enable CPU Voltage Table via sysfs for adjustements"
-	default n
-
-config MSM_MPDEC
-	bool "Enable kernel based mpdecision"
-	depends on MSM_SMP
-	default n
-	help
-	  This enables kernel based multi core control.
-	  (up/down hotplug based on load)
-
-choice
-        prompt "Default MPdecision setting"
-        help
-                This option sets the MPdecision startup settings.
-                If in doubt, select 'enabled'.
-
-config MSM_MPDEC_ENABLED
-        bool "enabled"
-        depends on MSM_MPDEC
-        help
-                Build MPdecision into kernel with full control over 
-                multi processor decisions by default.
-
-config MSM_MPDEC_DISABLED
-        bool "disabled"
-        depends on MSM_MPDEC
-        help
-                Build MPdecision into kernel with only control over 
-                screen on/off multi processor decisions by default.
-
-endchoice
+	default y
 
 if CPU_FREQ_MSM
 
@@ -1618,14 +1628,22 @@ config MSM_CPU_FREQ_SET_MIN_MAX
 config MSM_CPU_FREQ_MAX
 	int "Max CPU Frequency"
 	depends on MSM_CPU_FREQ_SET_MIN_MAX
-	default 384000
+	default 1188000
 
 config MSM_CPU_FREQ_MIN
 	int "Min CPU Frequency"
 	depends on MSM_CPU_FREQ_SET_MIN_MAX
-	default 245760
+	default 192000
 
 endif # CPU_FREQ_MSM
+
+config MSM_CPU_FREQ_ONDEMAND_MAX
+        int "Max"
+        default 384000
+
+config MSM_CPU_FREQ_ONDEMAND_MIN
+        int "Min"
+        default 245760
 
 config MSM_CPU_AVS
 	bool "Enable software controlled Adaptive Voltage Scaling (AVS)"
@@ -1685,7 +1703,15 @@ endchoice
 config MSM7KV2_AUDIO
 	bool "MSM7K v2 audio"
 	depends on (ARCH_MSM7X30 && ANDROID_PMEM)
-	default y
+	default n
+	help
+	  Enables QDSP5V2-based audio drivers for audio playbacks and
+	  voice call.
+
+config MSM7KV2_1X_AUDIO
+	bool "MSM7K 1x v2 audio"
+	depends on (ARCH_MSM7X30 && ANDROID_PMEM)
+	default n
 	help
 	  Enables QDSP5V2-based audio drivers for audio playbacks and
 	  voice call.
@@ -1903,6 +1929,12 @@ config MSM_IDLE_WAIT_ON_MODEM
 	  If Modem is not ready to handle Application Processor's request
 	  for idle power collapse, wait the number of microseconds in case
 	  Modem becomes ready soon.
+
+config MICROP_COMMON
+	tristate "MICROP COMMON Driver"
+	depends on I2C
+	help
+	  HTC Microp-P support.
 
 config HTC_HEADSET_MGR
 	tristate "HTC headset manager driver"
@@ -2265,6 +2297,14 @@ config MSM_AUDIO_QDSP6
           Enable HW audio support in QDSP6.
           QDSP6 can support HW encoder & decoder and audio processing
 
+config RPC_VIBRATOR
+        bool "RPC based MSM Vibrator Support"
+        depends on MSM_ONCRPCROUTER
+        help
+          Enable the vibrator support on MSM over RPC. The vibrator
+          is connected on the PMIC. Say Y if you want to enable this
+          feature.
+
 config MSM_RPC_VIBRATOR
 	bool "RPC based MSM Vibrator Support"
 	depends on MSM_ONCRPCROUTER
@@ -2373,8 +2413,8 @@ config FORCE_FAST_CHARGE
 	bool "Force AC charge mode at will"
 	default y
 	help
-	  A simple sysfs interface to force adapters that
-	  are detected as USB to charge as AC.
+		A simple sysfs interface to force adapters that
+		are detected as USB to charge as AC.
 
 config HTC_ACCESSORY_ONEWIRE
         tristate "HTC accessory one wire protocol driver"

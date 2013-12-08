@@ -351,7 +351,7 @@ __enable_mmu:
 #ifdef CONFIG_ALLOW_CPU_ALIGNMENT
 	bic	r0, r0, #CR_A
 #else
-	orr  r0, r0, #CR_A
+	orr	r0, r0, #CR_A
 #endif
 #ifdef CONFIG_CPU_DCACHE_DISABLE
 	bic	r0, r0, #CR_C

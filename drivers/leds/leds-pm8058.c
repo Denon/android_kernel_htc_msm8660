@@ -31,6 +31,14 @@
 #include <linux/atmel_qt602240.h>
 #endif
 
+#ifdef CONFIG_TOUCHSCREEN_CYPRESS_SWEEP2WAKE
+#include <linux/cy8c_tma_ts.h>
+#endif
+
+#ifdef CONFIG_LEDS_PM8058_MULTIPLIER
+#include <linux/leds-pm8058-multiplier.h>
+#endif
+
 #ifdef CONFIG_HTC_HEADSET_MISC
 #define charming_led_enable(enable) headset_indicator_enable(enable)
 #else
@@ -51,6 +59,9 @@ static struct pm8058_led_data  *for_key_led_data;
 static int flag_hold_virtual_key = 0;
 static int virtual_key_state;
 struct wake_lock pmic_led_wake_lock;
+static int lut_coefficient = 100;
+static int pwm_coefficient = 100;
+static int duty_array[64];
 
 static int bank_to_id(int bank)
 {
@@ -179,7 +190,7 @@ static void pm8058_pwm_led_brightness_set(struct led_classdev *led_cdev,
 		charming_led_enable(enable);
 
 	if (brightness) {
-		pwm_config(ldata->pwm_led, 64000, 64000);
+		pwm_config(ldata->pwm_led, 6400 *pwm_coefficient / 100, 6400);
 #if 0
 		pwm_conf.pwm_size = ldata->pwm_size;
 		pwm_conf.clk = ldata->clk;
@@ -233,10 +244,10 @@ extern void pm8058_drvx_led_brightness_set(struct led_classdev *led_cdev,
 			    ldata->out_current * brightness / LED_FULL :
 			    ldata->out_current;
 		printk(KERN_INFO "%s: flags %d current %d\n", __func__,
-				ldata->flags, milliamps);
+			ldata->flags, milliamps);
 		pm8058_pwm_config_led(ldata->pwm_led, id, mode, milliamps);
 		if (ldata->flags & PM8058_LED_LTU_EN) {
-			pduties = &duties[ldata->start_index];
+			pduties = &duty_array[ldata->start_index];
 			pm8058_pwm_lut_config(ldata->pwm_led,
 					      ldata->period_us,
 					      pduties,
@@ -254,7 +265,7 @@ extern void pm8058_drvx_led_brightness_set(struct led_classdev *led_cdev,
 	} else {
 		if (ldata->flags & PM8058_LED_LTU_EN) {
 			wake_lock_timeout(&pmic_led_wake_lock,HZ*2);
-			pduties = &duties[ldata->start_index +
+			pduties = &duty_array[ldata->start_index +
 					  ldata->duites_size];
 			pm8058_pwm_lut_config(ldata->pwm_led,
 					      ldata->period_us,
@@ -326,7 +337,7 @@ static ssize_t pm8058_led_blink_store(struct device *dev,
 	case 0:
 		pwm_disable(ldata->pwm_led);
 		if (led_cdev->brightness) {
-			pwm_config(ldata->pwm_led, 64000, 64000);
+			pwm_config(ldata->pwm_led, 6400 * pwm_coefficient / 100, 6400);
 			pwm_enable(ldata->pwm_led);
 		} else {
 			if (ldata->flags & PM8058_LED_BLINK_EN)
@@ -441,10 +452,33 @@ static ssize_t pm8058_led_off_timer_store(struct device *dev,
 	led_cdev = (struct led_classdev *)dev_get_drvdata(dev);
 	ldata = container_of(led_cdev, struct pm8058_led_data, ldev);
 
+	#ifdef CONFIG_LEDS_PM8058_MULTIPLIER
+	switch (off_timer_multiplier) {
+		case OFF_TIMER_INFINITE:	{
+							/* If infinate notification set, don't set any timer */
+							LED_INFO_LOG("Setting %s off_timer to %d min %d sec\n",
+											     led_cdev->name, min, sec);
+							return -EINVAL;
+						}
+		case OFF_TIMER_NORMAL:		{
+							LED_INFO_LOG("Setting %s off_timer to %d min %d sec\n",
+											   led_cdev->name, min, sec);
+
+							off_timer = min * 60 + sec;
+						}
+		default:			{
+							LED_INFO_LOG("Setting %s off_timer to %d min %d sec multiplied by %d\n",
+											   led_cdev->name, min, sec, off_timer_multiplier);
+
+							off_timer = (min * 60 + sec) * off_timer_multiplier;
+						}
+	}
+	#else
 	LED_INFO_LOG("Setting %s off_timer to %d min %d sec\n",
 					   led_cdev->name, min, sec);
 
 	off_timer = min * 60 + sec;
+	#endif
 
 	alarm_cancel(&ldata->led_alarm);
 	cancel_work_sync(&ldata->led_work);
@@ -489,7 +523,7 @@ static ssize_t pm8058_led_currents_store(struct device *dev,
 
 	LED_INFO_LOG("%s: bank %d currents %d\n", __func__, ldata->bank,
 	       currents);
-
+	if (currents <= 60)
 	ldata->out_current = currents;
 
 	ldata->ldev.brightness_set(led_cdev, 0);
@@ -501,6 +535,78 @@ static ssize_t pm8058_led_currents_store(struct device *dev,
 
 static DEVICE_ATTR(currents, 0644, pm8058_led_currents_show,
 		   pm8058_led_currents_store);
+
+static ssize_t pm8058_led_lut_coefficient_show(struct device *dev,
+					struct device_attribute *attr,
+					char *buf)
+{
+	struct led_classdev *led_cdev;
+	struct pm8058_led_data *ldata;
+
+	led_cdev = (struct led_classdev *)dev_get_drvdata(dev);
+	ldata = container_of(led_cdev, struct pm8058_led_data, ldev);
+
+	return sprintf(buf, "%d\n", lut_coefficient);
+}
+
+static ssize_t pm8058_led_lut_coefficient_store(struct device *dev,
+					 struct device_attribute *attr,
+					 const char *buf, size_t count)
+{
+	int lut_coefficient_input = 0;
+	int i;
+	struct led_classdev *led_cdev;
+	struct pm8058_led_data *ldata;
+
+	sscanf(buf, "%d", &lut_coefficient_input);
+	if (lut_coefficient_input < 0)
+		return -EINVAL;
+
+	led_cdev = (struct led_classdev *)dev_get_drvdata(dev);
+	ldata = container_of(led_cdev, struct pm8058_led_data, ldev);
+
+	LED_INFO_LOG("%s: lut_coefficient %d\n", __func__, lut_coefficient_input);
+	for (i=0;i<64;i++) {
+		duty_array[i]= duties[i] * lut_coefficient_input / 100;
+	}
+	lut_coefficient = lut_coefficient_input;
+	return count;
+}
+static DEVICE_ATTR(lut_coefficient, 0644, pm8058_led_lut_coefficient_show, pm8058_led_lut_coefficient_store);
+
+static ssize_t pm8058_led_pwm_coefficient_show(struct device *dev,
+					struct device_attribute *attr,
+					char *buf)
+{
+	struct led_classdev *led_cdev;
+	struct pm8058_led_data *ldata;
+
+	led_cdev = (struct led_classdev *)dev_get_drvdata(dev);
+	ldata = container_of(led_cdev, struct pm8058_led_data, ldev);
+
+	return sprintf(buf, "%d\n", pwm_coefficient);
+}
+
+static ssize_t pm8058_led_pwm_coefficient_store(struct device *dev,
+					 struct device_attribute *attr,
+					 const char *buf, size_t count)
+{
+	int pwm_coefficient_input = 0;
+	struct led_classdev *led_cdev;
+	struct pm8058_led_data *ldata;
+
+	sscanf(buf, "%d", &pwm_coefficient_input);
+	if (pwm_coefficient_input < 0)
+		return -EINVAL;
+
+	led_cdev = (struct led_classdev *)dev_get_drvdata(dev);
+	ldata = container_of(led_cdev, struct pm8058_led_data, ldev);
+
+	LED_INFO_LOG("%s: pwm_coefficient %d\n", __func__, pwm_coefficient_input);
+	pwm_coefficient = pwm_coefficient_input;
+	return count;
+}
+static DEVICE_ATTR(pwm_coefficient, 0644, pm8058_led_pwm_coefficient_show, pm8058_led_pwm_coefficient_store);
 
 static int pm8058_led_probe(struct platform_device *pdev)
 {
@@ -538,8 +644,10 @@ static int pm8058_led_probe(struct platform_device *pdev)
 	if (!g_led_work_queue)
 		goto err_create_work_queue;
 
-	for (i = 0; i < 64; i++)
+	for (i = 0; i < 64; i++) {
+		duty_array[i] = pdata->duties[i];
 		duties[i] = pdata->duties[i];
+	}
 
 	for (i = 0; i < pdata->num_leds; i++) {
 		ldata[i].led_config = pdata->led_config + i;
@@ -557,6 +665,7 @@ static int pm8058_led_probe(struct platform_device *pdev)
 		ldata[i].duty_time_ms =  pdata->led_config[i].duty_time_ms;
 		ldata[i].lut_flag =  pdata->led_config[i].lut_flag;
 		ldata[i].out_current =  pdata->led_config[i].out_current;
+
 		switch (pdata->led_config[i].type) {
 		case PM8058_LED_CURRENT:
 			if (ldata[i].flags & PM8058_LED_BLINK_EN)
@@ -590,6 +699,7 @@ static int pm8058_led_probe(struct platform_device *pdev)
 						ldata[i].ldev.name);
 			ldata[i].ldev.brightness_set =
 					pm8058_drvx_led_brightness_set;
+
 			break;
 		}
 
@@ -644,6 +754,24 @@ static int pm8058_led_probe(struct platform_device *pdev)
 		}
 	}
 
+	for (i = 0; i < pdata->num_leds; i++) {
+		if (pdata->led_config[i].type == PM8058_LED_DRVX)
+			ret = device_create_file(ldata[i].ldev.dev, &dev_attr_lut_coefficient);
+		if (ret < 0) {
+			LED_ERR_LOG("%s: Failed to create %d attr lut_coefficient\n", __func__, i);
+			goto err_register_attr_lut_coefficient;
+		}
+	}
+
+	for (i = 0; i < pdata->num_leds; i++) {
+		if (pdata->led_config[i].type == PM8058_LED_RGB)
+			ret = device_create_file(ldata[i].ldev.dev, &dev_attr_pwm_coefficient);
+		if (ret < 0) {
+			LED_ERR_LOG("%s: Failed to create %d attr pwm_coefficient\n", __func__, i);
+			goto err_register_attr_pwm_coefficient;
+		}
+	}
+
 #ifdef CONFIG_TOUCHSCREEN_ATMEL_SWEEP2WAKE
 	if (!strcmp(pdata->led_config[2].name, "button-backlight")) {
 		sweep2wake_setleddev(&ldata[2].ldev);
@@ -651,7 +779,32 @@ static int pm8058_led_probe(struct platform_device *pdev)
 	}
 #endif
 
+#ifdef CONFIG_TOUCHSCREEN_CYPRESS_SWEEP2WAKE
+	if (!strcmp(pdata->led_config[2].name, "button-backlight")) {
+		sweep2wake_setleddev(&ldata[2].ldev);
+		printk(KERN_INFO "[sweep2wake]: set led device %s, bank %d\n", pdata->led_config[2].name, ldata[2].bank);
+	}
+#endif
+
 	return 0;
+
+err_register_attr_pwm_coefficient:
+	if (i > 0) {
+		for (i = i - 1; i >= 0; i--) {
+			if (pdata->led_config[i].type == PM8058_LED_RGB)
+				device_remove_file(ldata[i].ldev.dev, &dev_attr_pwm_coefficient);
+		}
+	}
+	i = pdata->num_leds;
+
+err_register_attr_lut_coefficient:
+	if (i > 0) {
+		for (i = i - 1; i >= 0; i--) {
+			if (pdata->led_config[i].type == PM8058_LED_DRVX)
+				device_remove_file(ldata[i].ldev.dev, &dev_attr_lut_coefficient);
+		}
+	}
+	i = pdata->num_leds;
 
 err_register_attr_currents:
 	for (i--; i >= 0; i--) {

@@ -556,18 +556,18 @@ void msm_rpm_check_rtc(void)
 			rtc_time_diff = ts.tv_sec - rtc_time_record;
 			if ((rpm_time_diff > rtc_time_diff && (rpm_time_diff - rtc_time_diff) > 5)
 				|| (rpm_time_diff < rtc_time_diff && (rtc_time_diff - rpm_time_diff) > 5)) {
-				printk("[RTC_DEBUG] RTC TIME Change!!!\n");
-				printk("[RTC_DEBUG] Last RTC[%lu], Now RTC[%lu]\n", rtc_time_record, ts.tv_sec);
-				printk("[RTC_DEBUG] Last RPM[%lu], Diff[%lu]\n", rpm_time_record, rpm_time_diff);
+				pr_info("[K][RTC_DEBUG] RTC TIME Change!!!\n");
+				pr_info("[K][RTC_DEBUG] Last RTC[%lu], Now RTC[%lu]\n", rtc_time_record, ts.tv_sec);
+				pr_info("[K][RTC_DEBUG] Last RPM[%lu], Diff[%lu]\n", rpm_time_record, rpm_time_diff);
 			}
 			else {
-				printk("[RTC_DEBUG] RTC TIME OK!\n");
-				printk("[RTC_DEBUG] Last RTC[%lu], Now RTC[%lu]\n", rtc_time_record, ts.tv_sec);
-				printk("[RTC_DEBUG] Last RPM[%lu], Diff[%lu]\n", rpm_time_record, rpm_time_diff);
+				pr_info("[K][RTC_DEBUG] RTC TIME OK!\n");
+				pr_info("[K][RTC_DEBUG] Last RTC[%lu], Now RTC[%lu]\n", rtc_time_record, ts.tv_sec);
+				pr_info("[K][RTC_DEBUG] Last RPM[%lu], Diff[%lu]\n", rpm_time_record, rpm_time_diff);
 			}
 		} else {
-			printk("[RTC_DEBUG] RTC TIME Changes!!!\n");
-			printk("[RTC_DEBUG] Last RTC[%lu], Now RTC[%lu]\n", rtc_time_record, ts.tv_sec);
+			pr_info("[K][RTC_DEBUG] RTC TIME Changes!!!\n");
+			pr_info("[K][RTC_DEBUG] Last RTC[%lu], Now RTC[%lu]\n", rtc_time_record, ts.tv_sec);
 		}
 	}
 	rpm_time_record = (ulong)(((uint64_t)(*mpm_sleep_tick) * 1000) >> 15) / 1000;

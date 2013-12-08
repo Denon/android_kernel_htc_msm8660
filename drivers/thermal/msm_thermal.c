@@ -23,16 +23,16 @@
 #define DEF_TEMP_SENSOR      0
 
 //max thermal limit
-#define DEF_ALLOWED_MAX_HIGH 75
-#define DEF_ALLOWED_MAX_FREQ 486000
+#define DEF_ALLOWED_MAX_HIGH 76
+#define DEF_ALLOWED_MAX_FREQ 384000
 
 //mid thermal limit
-#define DEF_ALLOWED_MID_HIGH 69
-#define DEF_ALLOWED_MID_FREQ 864000
+#define DEF_ALLOWED_MID_HIGH 72
+#define DEF_ALLOWED_MID_FREQ 648000
 
 //low thermal limit
-#define DEF_ALLOWED_LOW_HIGH 63
-#define DEF_ALLOWED_LOW_FREQ 1188000
+#define DEF_ALLOWED_LOW_HIGH 70
+#define DEF_ALLOWED_LOW_FREQ 972000
 
 //Sampling interval
 #define DEF_THERMAL_CHECK_MS 1000
@@ -136,11 +136,19 @@ static void check_temp(struct work_struct *work)
 		//low clr point
 		} else if ((temp < msm_thermal_tuners_ins.allowed_low_low) &&
 			   (thermal_throttled > 0)) {
+#ifdef CONFIG_MSM_CPU_FREQ_SET_MIN_MAX
+			if (cpu_policy->max < CONFIG_MSM_CPU_FREQ_MAX) {
+#else
 			if (cpu_policy->max < cpu_policy->cpuinfo.max_freq) {
+#endif
 				if (pre_throttled_max != 0)
 					max_freq = pre_throttled_max;
 				else {
-					max_freq = 1512000;
+#ifdef CONFIG_MSM_CPU_FREQ_SET_MIN_MAX
+					max_freq = CONFIG_MSM_CPU_FREQ_MAX;
+#else
+					max_freq = cpu_policy->cpuinfo.max_freq;
+#endif
 					pr_warn("msm_thermal: ERROR! pre_throttled_max=0, falling back to %u\n", max_freq);
 				}
 				update_policy = 1;
@@ -212,10 +220,16 @@ static void disable_msm_thermal(void)
 	for_each_possible_cpu(cpu) {
 		cpu_policy = cpufreq_cpu_get(cpu);
 		if (cpu_policy) {
+#ifdef CONFIG_MSM_CPU_FREQ_SET_MIN_MAX
+			if (cpu_policy->max < CONFIG_MSM_CPU_FREQ_MAX)
+				update_cpu_max_freq(cpu_policy, cpu,
+							CONFIG_MSM_CPU_FREQ_MAX);
+#else
 			if (cpu_policy->max < cpu_policy->cpuinfo.max_freq)
 				update_cpu_max_freq(cpu_policy, cpu,
 						    cpu_policy->
 						    cpuinfo.max_freq);
+#endif
 			cpufreq_cpu_put(cpu_policy);
 		}
 	}
@@ -460,5 +474,4 @@ static int __init msm_thermal_init(void)
 	return ret;
 }
 fs_initcall(msm_thermal_init);
-
 

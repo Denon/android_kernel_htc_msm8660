@@ -5582,7 +5582,6 @@ CIFSSMBUnixSetFileInfo(const int xid, struct cifs_tcon *tcon,
 
 	data_offset = (char *)pSMB +
 				offsetof(struct smb_hdr, Protocol) + offset;
-
 	count = sizeof(FILE_UNIX_BASIC_INFO);
 
 	pSMB->MaxParameterCount = cpu_to_le16(2);

@@ -38,13 +38,11 @@
 #include <linux/smsc911x.h>
 #include <linux/spi/spi.h>
 #include <linux/input/tdisc_shinetsu.h>
-#include <linux/cyttsp.h>
 #include <linux/i2c/isa1200.h>
 #include <linux/dma-mapping.h>
 #include <linux/i2c/bq27520.h>
 #include "sysinfo-8x60.h"
 #include <linux/atmel_qt602240.h>
-
 
 #ifdef CONFIG_ANDROID_PMEM
 #include <linux/android_pmem.h>
@@ -455,9 +453,9 @@ static struct msm_spm_platform_data msm_spm_data[] __initdata = {
 
 #ifdef CONFIG_PERFLOCK
 static unsigned rider_perf_acpu_table[] = {
-	540000000,
-	1026000000,
-	1512000000,
+	384000000,
+	756000000,
+	1188000000,
 };
 
 static struct perflock_platform_data rider_perflock_data = {
@@ -481,7 +479,7 @@ static struct regulator_init_data saw_s0_init_data = {
 		.constraints = {
 			.name = "8901_s0",
 			.valid_ops_mask = REGULATOR_CHANGE_VOLTAGE,
-			.min_uV = 750000,
+			.min_uV = 700000,
 			.max_uV = 1350000,
 		},
 		.consumer_supplies = vreg_consumers_8901_S0,
@@ -492,7 +490,7 @@ static struct regulator_init_data saw_s1_init_data = {
 		.constraints = {
 			.name = "8901_s1",
 			.valid_ops_mask = REGULATOR_CHANGE_VOLTAGE,
-			.min_uV = 750000,
+			.min_uV = 700000,
 			.max_uV = 1350000,
 		},
 		.consumer_supplies = vreg_consumers_8901_S1,
@@ -1278,7 +1276,6 @@ static struct platform_device android_usb_device = {
 		.platform_data = &android_usb_pdata,
 	},
 };
-
 #endif
 
 #ifdef CONFIG_MSM_VPE
@@ -1773,7 +1770,7 @@ static struct msm_camera_sensor_flash_src msm_flash_src = {
 
 static struct camera_flash_cfg msm_camera_sensor_flash_cfg = {
 	.low_temp_limit		= 10,
-	.low_cap_limit		= 5,
+	.low_cap_limit		= 15,
 };
 
 #ifdef CONFIG_S5K3H2YX
@@ -2509,7 +2506,6 @@ static struct attribute_group rider_properties_attr_group = {
 	.attrs = rider_properties_attrs,
 };
 
-#define TS_PEN_IRQ_
 #define TS_PEN_IRQ_GPIO 61
 #ifdef CONFIG_SERIAL_MSM_HS
 static int configure_uart_gpios(int on)
@@ -2877,8 +2873,8 @@ static struct regulator_consumer_supply vreg_consumers_PM8901_S4_PC[] = {
 /* RPM early regulator constraints */
 static struct rpm_regulator_init_data rpm_regulator_early_init_data[] = {
 	/*	 ID       a_on pd ss min_uV   max_uV   init_ip    freq */
-	RPM_SMPS(PM8058_S0, 0, 1, 1,  500000, 1350000, SMPS_HMIN, 1p92),
-	RPM_SMPS(PM8058_S1, 0, 1, 1,  500000, 1350000, SMPS_HMIN, 1p92),
+	RPM_SMPS(PM8058_S0, 0, 1, 1,  500000, 1450000, SMPS_HMIN, 1p92),
+	RPM_SMPS(PM8058_S1, 0, 1, 1,  500000, 1450000, SMPS_HMIN, 1p92),
 };
 
 /* RPM regulator constraints */
@@ -3044,11 +3040,18 @@ static struct platform_device *early_devices[] __initdata = {
 };
 
 static struct tsens_platform_data pyr_tsens_pdata  = {
-                .tsens_factor           = 1000,
-                .hw_type                = MSM_8660,
-                .tsens_num_sensor       = 6,
-                .slope                  = 702,
+		.tsens_factor		= 1000,
+		.hw_type		= MSM_8660,
+		.tsens_num_sensor	= 6,
+		.slope 			= 702,
 };
+
+/*
+static struct platform_device msm_tsens_device = {
+	.name   = "tsens-tm",
+	.id = -1,
+};
+*/
 
 #ifdef CONFIG_SENSORS_MSM_ADC
 static struct adc_access_fn xoadc_fn = {
@@ -3804,6 +3807,7 @@ static struct platform_device *rider_devices[] __initdata = {
 	&msm_device_rng,
 #endif
 
+	//&msm_tsens_device,
 	&msm_rpm_device,
 	&cable_detect_device,
 #ifdef CONFIG_BT
@@ -5258,7 +5262,6 @@ static void __init msm8x60_init_buses(void)
 #endif
 
 #ifdef CONFIG_SERIAL_MSM_HS
-	msm_uart_dm1_pdata.rx_wakeup_irq = gpio_to_irq(RIDER_GPIO_BT_HOST_WAKE);
 	msm_device_uart_dm1.dev.platform_data = &msm_uart_dm1_pdata;
 #endif
 

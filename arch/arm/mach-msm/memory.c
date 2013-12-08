@@ -37,6 +37,7 @@
 #include <mach/msm_iomap.h>
 #include <mach/socinfo.h>
 #include <../../mm/mm.h>
+#include <linux/fmem.h>
 
 #if defined(CONFIG_ARCH_MSM7X30)
 unsigned int ebi0_size = 0x20000000;
@@ -64,7 +65,7 @@ void map_page_strongly_ordered(void)
 	map.type = MT_DEVICE_STRONGLY_ORDERED;
 	create_mapping(&map);
 
-	printk(KERN_ALERT "Initialized strongly ordered page successfully\n");
+	printk(KERN_ALERT "[K] Initialized strongly ordered page successfully\n");
 #endif
 }
 EXPORT_SYMBOL(map_page_strongly_ordered);
@@ -76,7 +77,7 @@ void write_to_strongly_ordered_memory(void)
 		if (!in_interrupt())
 			map_page_strongly_ordered();
 		else {
-			printk(KERN_ALERT "Cannot map strongly ordered page in "
+			printk(KERN_ALERT "[K] Cannot map strongly ordered page in "
 				"Interrupt Context\n");
 			/* capture it here before the allocation fails later */
 			BUG();
@@ -425,4 +426,14 @@ void store_ttbr0(void)
 	/* Store TTBR0 for post-mortem debugging purposes. */
 	asm("mrc p15, 0, %0, c2, c0, 0\n"
 		: "=r" (msm_ttbr0));
+}
+
+int request_fmem_c_region(void *unused)
+{
+	return fmem_set_state(FMEM_C_STATE);
+}
+
+int release_fmem_c_region(void *unused)
+{
+	return fmem_set_state(FMEM_T_STATE);
 }
