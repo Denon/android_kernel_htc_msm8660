@@ -83,7 +83,6 @@
 #endif
 #ifdef CONFIG_BT
 #include <mach/htc_bdaddress.h>
-#include <mach/htc_sleep_clk.h>
 #endif
 #include <mach/htc_usb.h>
 #include <mach/gpiomux.h>
@@ -1170,12 +1169,12 @@ static struct msm_otg_platform_data msm_otg_pdata = {
 	.phy_init_seq		= rider_phy_init_seq,
 	.mode			= USB_OTG,
 	.otg_control		= OTG_PMIC_CONTROL,
-	.phy_type		= SNPS_28NM_INTEGRATED_PHY,
+	.phy_type		= CI_45NM_INTEGRATED_PHY,
 	.vbus_power		= msm_hsusb_vbus_power,
 	.power_budget		= 750,
 	.ldo_3v3_name	= "8058_l6",
 	.ldo_1v8_name	= "8058_l7",
-	.phy_type = CI_45NM_INTEGRATED_PHY,
+	.vddcx_name	= "8058_s1",
 };
 /* #endif */
 
@@ -1240,23 +1239,9 @@ static int usb_diag_update_pid_and_serial_num(uint32_t pid, const char *snum)
 	return 0;
 }
 
-static struct usb_mass_storage_platform_data mass_storage_pdata = {
-	.nluns		= 1,
-	.vendor		= "HTC",
-	.product	= "Android Phone",
-};
-
-static struct platform_device usb_mass_storage_device = {
-	.name	= "usb_mass_storage",
-	.id	= -1,
-	.dev	= {
-	.platform_data = &mass_storage_pdata,
-	},
-};
-
 static struct android_usb_platform_data android_usb_pdata = {
 	.vendor_id	= 0x0BB4,
-	.product_id	= 0x0cbe,
+	.product_id	= 0x0c86,
 	.version	= 0x0100,
 	.product_name		= "Android Phone",
 	.manufacturer_name	= "HTC",
@@ -1265,8 +1250,8 @@ static struct android_usb_platform_data android_usb_pdata = {
 	.num_functions = ARRAY_SIZE(usb_functions_all),
 	.functions = usb_functions_all,
 	.update_pid_and_serial_num = usb_diag_update_pid_and_serial_num,
+	.usb_id_pin_gpio = RIDER_GPIO_USB_ID,
 	.fserial_init_string = "tty:modem,tty,tty:serial",
-	.nluns = 1,
 };
 
 static struct platform_device android_usb_device = {
@@ -1276,6 +1261,7 @@ static struct platform_device android_usb_device = {
 		.platform_data = &android_usb_pdata,
 	},
 };
+
 #endif
 
 #ifdef CONFIG_MSM_VPE
@@ -6399,7 +6385,6 @@ void rider_add_usb_devices(void)
 
 	msm_device_gadget_peripheral.dev.parent = &msm_device_otg.dev;
 	platform_device_register(&msm_device_gadget_peripheral);
-	platform_device_register(&usb_mass_storage_device);
 	platform_device_register(&android_usb_device);
 }
 
