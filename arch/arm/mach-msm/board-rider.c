@@ -1162,6 +1162,24 @@ static void msm_hsusb_vbus_power(bool on)
 	vbus_is_on = on;
 }
 
+/*
+static uint32_t usb_uart_switch_table[] = {
+	GPIO_CFG(RIDER_GPIO_CPU_WIMAX_UART_EN, 0, GPIO_CFG_OUTPUT,
+		GPIO_CFG_NO_PULL, GPIO_CFG_2MA)
+};
+
+static void config_rider_usb_uart_gpios(int uart)
+{
+	config_gpio_table(usb_uart_switch_table, ARRAY_SIZE(usb_uart_switch_table));
+	printk("%s: %d\n", __func__, uart);
+	if (uart) {
+		gpio_set_value(RIDER_GPIO_CPU_WIMAX_UART_EN, 0);
+	} else {
+		gpio_set_value(RIDER_GPIO_CPU_WIMAX_UART_EN, 1);
+	}
+}
+*/
+
 /* ToDo: mark it */
 /* #if defined(CONFIG_USB_GADGET_MSM_72K) || defined(CONFIG_USB_EHCI_MSM_72K) */
 static int rider_phy_init_seq[] = { 0x06, 0x36, 0x0C, 0x31, 0x31, 0x32, 0x1, 0x0E, 0x1, 0x11, -1 };
@@ -3692,6 +3710,9 @@ static struct platform_device *rider_devices[] __initdata = {
 	&ram_console_device,
 	&msm_device_smd,
 	&msm_device_uart_dm12,
+#ifdef CONFIG_WIMAX_SERIAL_MSM
+	&msm_device_uart3,
+#endif
 #ifdef CONFIG_I2C_QUP
 	&msm_gsbi4_qup_i2c_device,
 	&msm_gsbi5_qup_i2c_device,
@@ -4012,6 +4033,19 @@ static int pm8058_gpios_init(void)
 				.out_strength	= PM_GPIO_STRENGTH_HIGH,
 				.function	= PM_GPIO_FUNC_NORMAL,
 				.vin_sel	= PM8058_GPIO_VIN_S3, /* 1.8 V */
+				.inv_int_pol	= 0,
+			}
+		},
+		{
+			PM8058_GPIO_PM_TO_SYS(RIDER_WIMAX_HOST_WAKEUP),
+			{
+				.direction	= PM_GPIO_DIR_IN,
+				.output_value	= 0,
+				.output_buffer	= 0,
+				.pull		= PM_GPIO_PULL_NO,
+				.out_strength	= PM_GPIO_STRENGTH_HIGH,
+				.function	= PM_GPIO_FUNC_NORMAL,
+				.vin_sel	= PM8058_GPIO_VIN_S3,
 				.inv_int_pol	= 0,
 			}
 		},
@@ -5251,6 +5285,12 @@ static void __init msm8x60_init_buses(void)
 	msm_device_uart_dm1.dev.platform_data = &msm_uart_dm1_pdata;
 #endif
 
+#ifdef CONFIG_WIMAX_SERIAL_MSM_HS
+	msm_uart3_pdata.rx_wakeup_irq = gpio_to_irq(RIDER_GPIO_WIMAX_UART_SOUT);
+	msm_device_uart3.name = "msm_serial_hsl_wimax";
+	msm_device_uart3.dev.platform_data = &msm_uart3_pdata;
+#endif
+
 #ifdef CONFIG_MSM_BUS_SCALING
 
 	/* RPM calls are only enabled on V2 */
@@ -6055,7 +6095,21 @@ static void __init msm8x60_init_mmc(void)
     msm8x60_sdc1_data.swfi_latency = msm_rpm_get_swfi_latency();
 	msm_add_sdcc(1, &msm8x60_sdc1_data);
 #endif
+#ifdef CONFIG_MMC_MSM_SDC2_SUPPORT
+	/*
+	 * MDM SDIO client is connected to SDC2 on charm SURF/FFA
+	 * and no card is connected on 8660 SURF/FFA/FLUID.
+	 */
+	/* SDCC2 : WiMAX SQN1210 is connected */
+	/*
+	sdcc_vreg_data[1].vdd_data = &sdcc_vdd_reg_data[1];
+	sdcc_vreg_data[1].vdd_data->reg_name = "8058_s3";
+	sdcc_vreg_data[1].vdd_data->set_voltage_sup = 1;
+	sdcc_vreg_data[1].vdd_data->level = 1800000;
 
+	sdcc_vreg_data[1].vccq_data = NULL;
+	*/
+#endif
 #ifdef CONFIG_MMC_MSM_SDC3_SUPPORT
 	/* SDCC3 : External card slot connected */
 	sdcc_vreg_data[2].vdd_data = &sdcc_vdd_reg_data[2];
