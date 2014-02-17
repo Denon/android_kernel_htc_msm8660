@@ -50,4 +50,3 @@ extern void msm_hs_request_clock_on_locked(struct uart_port *uport);
 #endif
 
 #endif
-

@@ -1,4 +1,4 @@
-/* Copyright (c) 2011, Code Aurora Forum. All rights reserved.
+/* Copyright (c) 2012, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -8,12 +8,13 @@
  * but WITHOUT ANY WARRANTY; without even the implied warranty of
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
  * GNU General Public License for more details.
+ *
  */
 
-#include <linux/types.h>
+#include "kgsl.h"
+#include "adreno.h"
 
-uint32_t etm_read_reg(uint32_t reg);
-void   etm_write_reg(uint32_t reg, uint32_t val);
-void   l2tevselr0_write(uint32_t val);
-void etm_save_reg(void);
-void etm_restore_reg(void);
+/* Instantiate tracepoints */
+#define CREATE_TRACE_POINTS
+#include "a3xx_reg.h"
+#include "adreno_a3xx_trace.h"
