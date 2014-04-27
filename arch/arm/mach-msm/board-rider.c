@@ -461,6 +461,17 @@ static struct perflock_platform_data rider_perflock_data = {
 	.perf_acpu_table = rider_perf_acpu_table,
 	.table_size = ARRAY_SIZE(rider_perf_acpu_table),
 };
+
+static unsigned rider_cpufreq_ceiling_acpu_table[] = {
+	-1,
+	-1,
+	1026000000,
+};
+
+static struct perflock_platform_data rider_cpufreq_ceiling_data = {
+	.perf_acpu_table = rider_cpufreq_ceiling_acpu_table,
+	.table_size = ARRAY_SIZE(rider_cpufreq_ceiling_acpu_table),
+};
 #endif
 
 /*
@@ -6552,6 +6563,7 @@ static void __init msm8x60_init(struct msm_board_data *board_data)
 
 #ifdef CONFIG_PERFLOCK
 	perflock_init(&rider_perflock_data);
+	cpufreq_ceiling_init(&rider_cpufreq_ceiling_data);
 #endif
 
 #ifdef CONFIG_CPU_FREQ_GOV_ONDEMAND_2_PHASE
